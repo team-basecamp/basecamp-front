@@ -42,7 +42,7 @@ npm run dev
 
 | 변수명 | 설명 |
 |--------|------|
-| `VITE_API_BASE_URL` | 백엔드 API 주소 (기본: `/api`, 프록시 경유) |
+| `VITE_API_BASE_URL` | 백엔드 API 주소 (기본: `/api/v1`, 프록시 경유) |
 | `VITE_KAKAO_MAP_KEY` | 카카오맵 TypeScript API 키 |
 | `VITE_KAKAO_LOGIN_KEY` | 카카오 소셜 로그인 REST API 키 |
 | `VITE_GOOGLE_CLIENT_ID` | 구글 OAuth 클라이언트 ID |
