@@ -94,7 +94,8 @@ src/
 └── vite-env.d.ts
 ```
 
-> 현재 화면은 `data/`의 목업 데이터로 동작합니다. `api/`의 Axios 함수는 백엔드 명세(`src/imports/pasted_text/api-endpoints.md`)에 맞춰 준비되어 있으므로,
+> 현재 화면은 `data/`의 목업 데이터로 동작
+> `api/`의 Axios 함수는 백엔드 명세(`src/imports/pasted_text/api-endpoints.md`)에 맞춰 준비되어 있으므로,
 > 백엔드 연동 시 각 페이지에서 목업 배열 대신 TanStack Query로 교체하면 됩니다.
 
 ## API 프록시
