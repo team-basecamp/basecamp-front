@@ -1,0 +1,22 @@
+.login-left-panel {
+  background-size: cover;
+  background-position: center;
+}
+
+.social-btn {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.social-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.login-form-container {
+  animation: fadeInRight 0.5s ease both;
+}
+
+@keyframes fadeInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}

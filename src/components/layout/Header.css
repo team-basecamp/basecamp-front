@@ -1,0 +1,30 @@
+.navbar {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.nav-tab {
+  position: relative;
+  transition: color 0.15s ease;
+}
+
+.nav-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 2px;
+  border-radius: 2px;
+  background-color: var(--primary);
+}
+
+.mobile-menu {
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
