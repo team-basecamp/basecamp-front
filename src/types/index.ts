@@ -13,17 +13,19 @@ export interface Camp {
   glampSiteCo: number;      // 글램핑 수
   tel: string;
   rating: number;
+  averageRating?: number;   // 백엔드 응답 필드명 (mock 데이터의 rating과 다름)
   manageSttus?: string;     // 운영 상태 (ERD의 manage_sttus, 예: 운영/휴업)
   reservationCount?: number;
+  createdAt?: string;       // 캠핑장 등록 일시 (최근 등록 캠핑장 정렬용)
   // legacy compat for existing CampCard usage
   region?: string;
   price?: number;
   tags?: string[];
   image?: string;
-  desc?: string;
+  description?: string;
   facilities?: string[];
   website?: string;
-  openHours?: string;
+  operatingHours?: string;
   maxPeople?: number;
   reviewCount?: number;
 }

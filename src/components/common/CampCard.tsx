@@ -18,7 +18,7 @@ interface CampCardProps {
 
 function indutyBadge(induty: string): string {
   if (induty.includes("글램핑")) return "글램핑";
-  if (induty.includes("오토")) return "오토캠핑";
+  if (induty.includes("오토") || induty.includes("자동차")) return "오토캠핑";
   if (induty.includes("카라반")) return "카라반";
   return "일반야영";
 }
@@ -61,7 +61,7 @@ export default function CampCard({ camp, onClick }: CampCardProps) {
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-1">
           <h3 className="font-semibold text-sm leading-tight line-clamp-1 flex-1">{camp.facltNm}</h3>
-          {camp.price && (
+          {!!camp.price && (
             <span className="text-primary font-bold text-sm whitespace-nowrap flex-shrink-0" style={{ fontFamily: "'DM Mono', monospace" }}>
               ₩{camp.price.toLocaleString()}
             </span>
@@ -75,7 +75,7 @@ export default function CampCard({ camp, onClick }: CampCardProps) {
 
         <div className="flex items-center gap-1.5">
           <Star size={12} className="fill-accent text-accent" />
-          <span className="text-sm font-semibold">{camp.rating.toFixed(1)}</span>
+          <span className="text-sm font-semibold">{(camp.rating ?? camp.averageRating ?? 0).toFixed(1)}</span>
           <span className="text-xs text-muted-foreground">({(camp.reviewCount ?? camp.reservationCount ?? 0).toLocaleString()})</span>
         </div>
       </div>

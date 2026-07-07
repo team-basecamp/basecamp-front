@@ -12,14 +12,25 @@ import type { Camp, WeatherDay } from "../types";
 export const getMapData = (mapX: number, mapY: number) =>
   instance.get("/v1/map", { params: { mapX, mapY } });
 
-export const getCampsites = (params: { numOfRows?: number; pageNo?: number } = {}) =>
-  instance.get<{ resultCode: string; resultMsg: string; data: Camp[] }>("/v1/camps", { params });
+export interface GetCampsitesParams {
+  keyword?: string;
+  region?: string;
+  induty?: string;
+  priceMax?: number;
+  sort?: "recommended" | "rating" | "reviewCount" | "priceAsc" | "recent";
+  pageNo?: number;
+  numOfRows?: number;
+}
 
-export const searchCampsites = (params: { keyword: string; numOfRows?: number; pageNo?: number }) =>
-  instance.get<{ resultCode: string; resultMsg: string; data: Camp[] }>("/v1/camps/search", { params });
+// 키워드/지역/유형/최대금액 필터 + 정렬 + 페이징을 조합한 캠핑장 검색(=목록 조회)
+export const getCampsites = (params: GetCampsitesParams = {}) =>
+  instance.get<{ resultCode: string; resultMsg: string; data: Camp[]; totalCount: number }>(
+    "/v1/camps/search",
+    { params }
+  );
 
 export const getCampsiteDetail = (contentId: number) =>
-  instance.get<{ resultCode: string; resultMsg: string; data: Camp }>(`/v1/camps/${contentId}`);
+  instance.get<{ resultCode: string; resultMsg: string; data: Camp }>(`/v1/camps/content/${contentId}`);
 
 export const getHotCampsites = (sortBy: "rating" | "reservationCount" = "rating", numOfRows = 10, pageNo = 1) =>
   instance.get<{ resultCode: string; resultMsg: string; data: Camp[] }>("/v1/camps/hot", {

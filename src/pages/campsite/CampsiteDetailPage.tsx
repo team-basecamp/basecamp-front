@@ -9,9 +9,10 @@ import StarRow from "../../components/common/StarRow";
 import { CAMPS } from "../../data/camps";
 import { INITIAL_REVIEWS } from "../../data/reviews";
 import { getWeatherPreview } from "../../data/weather";
+import { getCampsiteDetail } from "../../api/campsite";
 import useAuthStore from "../../store/authStore";
 import useWishlistStore from "../../store/wishlistStore";
-import type { Review } from "../../types";
+import type { Camp, Review } from "../../types";
 
 /**
  * 캠핑장 상세 페이지 (/campsites/:contentId)
@@ -27,7 +28,20 @@ export default function CampsiteDetailPage() {
   const isWished = useWishlistStore((s) => s.isWished);
   const toggleWish = useWishlistStore((s) => s.toggleWish);
 
-  const camp = CAMPS.find((c) => c.contentId === Number(contentId));
+  const [camp, setCamp] = useState<Camp | undefined>(
+    CAMPS.find((c) => c.contentId === Number(contentId))
+  );
+  const [campLoading, setCampLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCampLoading(true);
+    getCampsiteDetail(Number(contentId))
+      .then((res: any) => { if (!cancelled) setCamp(res.data); })
+      .catch(() => { if (!cancelled) setCamp(CAMPS.find((c) => c.contentId === Number(contentId))); })
+      .finally(() => { if (!cancelled) setCampLoading(false); });
+    return () => { cancelled = true; };
+  }, [contentId]);
 
   const [campReviews, setCampReviews] = useState<Review[]>(
     INITIAL_REVIEWS.filter((r) => r.campId === Number(contentId))
@@ -54,10 +68,14 @@ export default function CampsiteDetailPage() {
   if (!camp) {
     return (
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
-        <p className="text-muted-foreground mb-6">캠핑장을 찾을 수 없습니다</p>
-        <button onClick={() => navigate("/campsites")} className="px-6 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all">
-          목록으로
-        </button>
+        <p className="text-muted-foreground mb-6">
+          {campLoading ? "캠핑장 정보를 불러오는 중..." : "캠핑장을 찾을 수 없습니다"}
+        </p>
+        {!campLoading && (
+          <button onClick={() => navigate("/campsites")} className="px-6 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all">
+            목록으로
+          </button>
+        )}
       </div>
     );
   }
@@ -130,7 +148,11 @@ export default function CampsiteDetailPage() {
 
       {/* Hero image */}
       <div className="relative h-72 sm:h-96 rounded-3xl overflow-hidden mb-8 bg-muted">
-        <img src={camp.image ?? camp.firstImageUrl} alt={camp.facltNm} className="w-full h-full object-cover" />
+        {(camp.image || camp.firstImageUrl) ? (
+          <img src={camp.image || camp.firstImageUrl} alt={camp.facltNm} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-secondary flex items-center justify-center text-6xl">🏕️</div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <div className="absolute bottom-6 left-6">
           <div className="flex flex-wrap gap-2 mb-2">
@@ -153,13 +175,13 @@ export default function CampsiteDetailPage() {
           {/* Description */}
           <div className="bg-card border border-border rounded-2xl p-6">
             <h2 className="font-bold text-lg mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>캠핑장 소개</h2>
-            <p className="text-muted-foreground text-sm leading-relaxed mb-5">{camp.desc}</p>
+            <p className="text-muted-foreground text-sm leading-relaxed mb-5">{camp.description}</p>
             <div className="grid grid-cols-2 gap-3 text-sm">
               {[
                 { icon: <Phone size={14} />, label: "전화", value: camp.tel },
                 { icon: <Globe size={14} />, label: "웹사이트", value: camp.website },
-                { icon: <Clock size={14} />, label: "이용시간", value: camp.openHours },
-                { icon: <Users size={14} />, label: "최대인원", value: `${camp.maxPeople}명` },
+                { icon: <Clock size={14} />, label: "이용시간", value: camp.operatingHours },
+                { icon: <Users size={14} />, label: "최대인원", value: camp.maxPeople ? `${camp.maxPeople}명` : "-" },
               ].map((item) => (
                 <div key={item.label} className="flex items-start gap-2">
                   <span className="text-primary mt-0.5 flex-shrink-0">{item.icon}</span>
