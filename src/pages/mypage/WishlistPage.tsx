@@ -1,14 +1,18 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, MapPin, Star, X } from "lucide-react";
 import { CAMPS } from "../../data/camps";
+import { getCampsites } from "../../api/campsite";
 import RequireLogin from "../../components/common/RequireLogin";
 import useAuthStore from "../../store/authStore";
 import useWishlistStore from "../../store/wishlistStore";
 import MyPageHeader from "./MyPageHeader";
+import type { Camp } from "../../types";
 
 /**
  * 찜한 캠핑장 목록 (/mypage/wishlist)
- * - store/wishlistStore(zustand)에 저장된 찜 id 목록(wishedIds)으로 CAMPS 데이터를 필터링해 카드 그리드로 보여줌
+ * - store/wishlistStore(zustand)에 저장된 찜 id 목록(wishedIds)으로, 백엔드에서 받아온 전체 캠핑장 중
+ *   찜한 것만 걸러내어 카드 그리드로 보여줌 (실패 시 mock CAMPS로 폴백)
  * - wishlistStore를 쓰는 이유: 캠핑장 상세 페이지 등 다른 화면에서 찜하기/해제해도 이 목록이 페이지 이동과 무관하게 동기화됨
  */
 export default function WishlistPage() {
@@ -16,10 +20,17 @@ export default function WishlistPage() {
   const user = useAuthStore((s) => s.user);
   const wishedIds = useWishlistStore((s) => s.wishedIds);
   const toggleWish = useWishlistStore((s) => s.toggleWish);
+  const [allCamps, setAllCamps] = useState<Camp[]>(CAMPS);
+
+  useEffect(() => {
+    getCampsites({ numOfRows: 200 })
+      .then((res: any) => setAllCamps(res.data ?? []))
+      .catch(() => setAllCamps(CAMPS));
+  }, []);
 
   if (!user) return <RequireLogin />;
 
-  const wishedCamps = CAMPS.filter((c) => wishedIds.has(c.contentId));
+  const wishedCamps = allCamps.filter((c) => wishedIds.has(c.contentId));
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
@@ -49,7 +60,7 @@ export default function WishlistPage() {
               </div>
               <div className="flex items-center gap-1 text-xs">
                 <Star size={11} className="fill-accent text-accent" />
-                <span className="font-semibold">{camp.rating.toFixed(1)}</span>
+                <span className="font-semibold">{(camp.rating ?? camp.averageRating ?? 0).toFixed(1)}</span>
               </div>
             </div>
           </div>

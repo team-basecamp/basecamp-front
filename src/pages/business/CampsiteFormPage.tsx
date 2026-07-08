@@ -30,9 +30,9 @@ export default function CampsiteFormPage() {
     glampSiteCo: editingCamp?.glampSiteCo ?? 0,
     price: editingCamp?.price ?? 0,
     maxPeople: editingCamp?.maxPeople ?? 4,
-    openHours: editingCamp?.openHours ?? "14:00 ~ 익일 11:00",
+    operatingHours: editingCamp?.operatingHours ?? "14:00 ~ 익일 11:00",
     firstImageUrl: editingCamp?.firstImageUrl ?? "",
-    desc: editingCamp?.desc ?? "",
+    description: editingCamp?.description ?? "",
   });
 
   const updateField = <K extends keyof typeof form>(key: K) => (
@@ -182,8 +182,8 @@ export default function CampsiteFormPage() {
           <label className="text-sm font-semibold mb-1.5 block">이용 시간</label>
           <input
             type="text"
-            value={form.openHours}
-            onChange={updateField("openHours")}
+            value={form.operatingHours}
+            onChange={updateField("operatingHours")}
             placeholder="14:00 ~ 익일 11:00"
             className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
           />
@@ -203,8 +203,8 @@ export default function CampsiteFormPage() {
         <div>
           <label className="text-sm font-semibold mb-1.5 block">소개</label>
           <textarea
-            value={form.desc}
-            onChange={updateField("desc")}
+            value={form.description}
+            onChange={updateField("description")}
             placeholder="캠핑장을 소개해주세요"
             rows={5}
             className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground resize-none"

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Star, Users, ChevronRight, TrendingUp, MapPin } from "lucide-react";
 import CampCard from "../components/common/CampCard";
 import { CAMPS } from "../data/camps";
+import { getHotCampsites, getCampsites } from "../api/campsite";
 import type { Camp } from "../types";
 import "./HomePage.css";
 
@@ -13,23 +14,41 @@ type HotSort = "rating" | "reservationCount";
 /**
  * 메인 홈페이지 (/)
  * - 히어로 검색창, 인기(HOT) 캠핑장, 유형별 카테고리, 최근 등록 캠핑장을 한 화면에 소개
- * - 캠핑장 데이터는 data/camps.ts의 mock 데이터(CAMPS)를 그대로 사용 (백엔드 연동 전 임시 데이터)
- * - 검색/카테고리/태그 클릭 시 실제 필터링은 하지 않고 /campsites?q=... 로 이동만 시키며, 필터링은 CampsiteListPage에서 처리
+ * - HOT/최근 등록 캠핑장은 백엔드(GET /v1/camps/hot, /v1/camps/search?sort=recent)에서 조회하고,
+ *   실패 시 data/camps.ts의 mock 데이터(CAMPS)로 폴백
+ * - 검색/카테고리/태그 클릭 시 실제 필터링은 하지 않고 /campsites?... 로 이동만 시키며, 필터링은 CampsiteListPage에서 처리
  */
 export default function HomePage() {
   const [query, setQuery] = useState(""); // 검색창 입력값
   const [hotSort, setHotSort] = useState<HotSort>("rating"); // 인기 캠핑장 정렬 기준 (평점순 / 예약건수순)
+  const [hotCamps, setHotCamps] = useState<Camp[]>([]);
+  const [recentCamps, setRecentCamps] = useState<Camp[]>([]);
   const navigate = useNavigate();
 
-  const hotCamps = [...CAMPS]
-    .sort((a, b) =>
-      hotSort === "rating"
-        ? b.rating - a.rating
-        : (b.reservationCount ?? 0) - (a.reservationCount ?? 0)
-    )
-    .slice(0, 4);
+  useEffect(() => {
+    getHotCampsites(hotSort, 4)
+      .then((res: any) => setHotCamps(res.data ?? []))
+      .catch(() => {
+        setHotCamps(
+          [...CAMPS]
+            .sort((a, b) =>
+              hotSort === "rating"
+                ? b.rating - a.rating
+                : (b.reservationCount ?? 0) - (a.reservationCount ?? 0)
+            )
+            .slice(0, 4)
+        );
+      });
+  }, [hotSort]);
+
+  useEffect(() => {
+    getCampsites({ sort: "recent", numOfRows: 3 })
+      .then((res: any) => setRecentCamps(res.data ?? []))
+      .catch(() => setRecentCamps(CAMPS.slice(4, 7)));
+  }, []);
 
   const onSearch = (q: string) => navigate(`/campsites?q=${encodeURIComponent(q)}`);
+  const onCategoryClick = (induty: string) => navigate(`/campsites?induty=${encodeURIComponent(induty)}`);
   const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.contentId}`);
   const onLoginClick = () => navigate("/login");
 
@@ -160,14 +179,14 @@ export default function HomePage() {
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { icon: "🌲", label: "일반야영장", count: 432, query: "일반야영장" },
-              { icon: "🚗", label: "오토캠핑장", count: 387, query: "오토캠핑장" },
-              { icon: "⛺", label: "글램핑", count: 218, query: "글램핑" },
-              { icon: "🚐", label: "카라반", count: 97, query: "카라반" },
+              { icon: "🌲", label: "일반야영장", count: 432, induty: "일반야영장" },
+              { icon: "🚗", label: "오토캠핑장", count: 387, induty: "자동차야영장" },
+              { icon: "⛺", label: "글램핑", count: 218, induty: "글램핑" },
+              { icon: "🚐", label: "카라반", count: 97, induty: "카라반" },
             ].map((cat) => (
               <button
                 key={cat.label}
-                onClick={() => onSearch(cat.query)}
+                onClick={() => onCategoryClick(cat.induty)}
                 className="bg-card border border-border rounded-2xl p-5 text-left hover:border-primary/40 hover:shadow-sm transition-all group"
               >
                 <span className="text-3xl mb-3 block">{cat.icon}</span>
@@ -196,7 +215,7 @@ export default function HomePage() {
           </button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {CAMPS.slice(4, 7).map((camp) => (
+          {recentCamps.map((camp) => (
             <CampCard key={camp.contentId} camp={camp} onClick={() => onCampClick(camp)} />
           ))}
         </div>
