@@ -36,9 +36,19 @@ export const getKakaoAuthorizeUrl = () => {
 
 const NAVER_AUTHORIZE_URL = "https://nid.naver.com/oauth2.0/authorize";
 
+export interface LoginStateResponse {
+  state: string;
+}
+
 /**
- * 네이버 인증(authorize) 페이지 URL. 네이버는 CSRF 방지를 위해 state 를 필수로 요구한다.
- * 호출부에서 만든 state 를 함께 저장해두고, 콜백에서 돌아온 state 와 대조해야 한다.
+ * 네이버 로그인 시작: 서버가 서명한 state 를 발급받는다(CSRF 방지).
+ * state 생성·검증은 서버가 담당하므로, 프론트는 이 값을 authorize 에 실어 보내고 콜백에서 그대로 되돌려주기만 한다.
+ */
+export const getNaverLoginState = () =>
+  instance.get<LoginStateResponse>("/v1/auth/login/naver/state") as unknown as Promise<LoginStateResponse>;
+
+/**
+ * 네이버 인증(authorize) 페이지 URL. state 는 서버가 발급한 서명값을 그대로 사용한다.
  */
 export const getNaverAuthorizeUrl = (state: string) => {
   const params = new URLSearchParams({
