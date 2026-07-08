@@ -34,6 +34,22 @@ export const getKakaoAuthorizeUrl = () => {
   return `${KAKAO_AUTHORIZE_URL}?${params.toString()}`;
 };
 
+const NAVER_AUTHORIZE_URL = "https://nid.naver.com/oauth2.0/authorize";
+
+/**
+ * 네이버 인증(authorize) 페이지 URL. 네이버는 CSRF 방지를 위해 state 를 필수로 요구한다.
+ * 호출부에서 만든 state 를 함께 저장해두고, 콜백에서 돌아온 state 와 대조해야 한다.
+ */
+export const getNaverAuthorizeUrl = (state: string) => {
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: import.meta.env.VITE_NAVER_CLIENT_ID,
+    redirect_uri: import.meta.env.VITE_NAVER_REDIRECT_URI,
+    state,
+  });
+  return `${NAVER_AUTHORIZE_URL}?${params.toString()}`;
+};
+
 // 인터셉터가 res.data 로 언래핑하므로 실제 resolve 값은 LoginResponse 다(axios 타입과 런타임을 일치시키는 캐스팅).
 export const loginWithKakao = (code: string) =>
   instance.post<LoginResponse>("/v1/auth/login/kakao", { code }) as unknown as Promise<LoginResponse>;
