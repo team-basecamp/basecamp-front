@@ -1,36 +1,54 @@
 import instance from "./instance";
+import type { MemberRole } from "../store/authStore";
 
 /**
  * 인증(auth) 관련 API 함수 모음 - 소셜 로그인, 로그아웃, 회원 탈퇴, 토큰 재발급.
- * - 엔드포인트/스키마는 src/imports/pasted_text/api-endpoints.md 스펙을 따름
- * - 주의: 현재 로그인/로그아웃 관련 페이지들은 이 함수들을 호출하지 않고
- *   store/authStore.ts에서 목업 상태를 그대로 사용 중. 실제 백엔드 연동 시
- *   여기 함수들을 TanStack Query(useMutation 등)로 교체하면 됨.
+ * - 엔드포인트/스키마는 백엔드(basecamp-back) 실제 계약을 따른다.
+ * - 로그인 응답: accessToken 은 body 로, refreshToken 은 HttpOnly 쿠키(Set-Cookie)로 내려온다.
+ *   따라서 프론트는 refreshToken 을 직접 저장하지 않고, 재발급 시 쿠키가 자동 전송된다(withCredentials).
  */
 export interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
-  memberId: number;
-  message: string;
+  tokenType: string;
+  userId: number;
+  email: string;
+  nickname: string;
+  role: MemberRole;
+  profileImageUrl: string | null;
 }
 
+const KAKAO_AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize";
+
+/**
+ * 카카오 인증(authorize) 페이지 URL. 로그인 버튼 클릭 시 이 URL 로 브라우저를 이동시킨다.
+ * 사용자가 동의하면 redirect_uri 로 인가 코드(?code=...)가 붙어 돌아온다.
+ */
+export const getKakaoAuthorizeUrl = () => {
+  const params = new URLSearchParams({
+    client_id: import.meta.env.VITE_KAKAO_LOGIN_KEY,
+    redirect_uri: import.meta.env.VITE_KAKAO_REDIRECT_URI,
+    response_type: "code",
+    // 이메일/닉네임/프로필은 카카오 콘솔에서 필수 동의라 자동 요청되지만, 명시적으로 함께 전달한다.
+    scope: "account_email,profile_nickname,profile_image",
+  });
+  return `${KAKAO_AUTHORIZE_URL}?${params.toString()}`;
+};
+
+// 인터셉터가 res.data 로 언래핑하므로 실제 resolve 값은 LoginResponse 다(axios 타입과 런타임을 일치시키는 캐스팅).
 export const loginWithKakao = (code: string) =>
-  instance.post<LoginResponse>("/v1/auth/login/kakao", { code });
+  instance.post<LoginResponse>("/v1/auth/login/kakao", { code }) as unknown as Promise<LoginResponse>;
 
 export const loginWithGoogle = (code: string) =>
-  instance.post<LoginResponse>("/v1/auth/login/google", { code });
+  instance.post<LoginResponse>("/v1/auth/login/google", { code }) as unknown as Promise<LoginResponse>;
 
 export const loginWithNaver = (code: string, state: string) =>
-  instance.post<LoginResponse>("/v1/auth/login/naver", { code, state });
+  instance.post<LoginResponse>("/v1/auth/login/naver", { code, state }) as unknown as Promise<LoginResponse>;
 
-export const logout = (refreshToken: string) =>
-  instance.post("/v1/auth/logout", { refreshToken });
+// 로그아웃/탈퇴/재발급: refresh 는 쿠키로 오가므로 body 로 토큰을 싣지 않는다(백엔드 후속 스텝에서 연동).
+export const logout = () => instance.post("/v1/auth/logout");
 
 export const withdraw = (reason: string) =>
   instance.post("/v1/auth/withdraw", { reason });
 
-export const refreshToken = (refreshToken: string) =>
-  instance.post<{ accessToken: string; refreshToken: string; message: string }>(
-    "/v1/auth/token/refresh",
-    { refreshToken }
-  );
+export const refreshToken = () =>
+  instance.post<{ accessToken: string; tokenType: string }>("/v1/auth/token/refresh");

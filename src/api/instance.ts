@@ -9,6 +9,9 @@ import useAuthStore from "../store/authStore";
 const instance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
   timeout: 10000,
+  // refresh 토큰이 HttpOnly 쿠키로 오가므로, cross-origin 요청에도 쿠키를 주고받도록 허용한다.
+  // (백엔드는 CORS allowCredentials=true + 오리진 화이트리스트로 응답해야 함)
+  withCredentials: true,
 });
 
 // 요청 인터셉터: 매 요청마다 authStore에 저장된 accessToken을 Authorization 헤더에 자동으로 실어보낸다.

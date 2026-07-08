@@ -9,6 +9,7 @@ import { createBrowserRouter } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 
 import LoginPage from "../pages/auth/LoginPage";
+import KakaoCallbackPage from "../pages/auth/KakaoCallbackPage";
 import HomePage from "../pages/HomePage";
 import MapPage from "../pages/map/MapPage";
 import CampsiteListPage from "../pages/campsite/CampsiteListPage";
@@ -36,8 +37,9 @@ import BlacklistPage from "../pages/admin/BlacklistPage";
 import ReportListPage from "../pages/admin/ReportListPage";
 
 const router = createBrowserRouter([
-  // 로그인 (레이아웃 없음)
+  // 로그인 / 소셜 콜백 (레이아웃 없음)
   { path: "/login", element: <LoginPage /> },
+  { path: "/oauth/kakao/callback", element: <KakaoCallbackPage /> },
 
   // 고객 화면
   {

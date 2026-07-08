@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import useAuthStore from "../../store/authStore";
+import { getKakaoAuthorizeUrl } from "../../api/auth";
 import "./LoginPage.css";
 
 function BasecampLogo({ size = 40 }: { size?: number }) {
@@ -23,7 +24,12 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const setUser = useAuthStore((s) => s.setUser);
 
-  // 실제 소셜 로그인 연동 전까지, 클릭한 provider의 닉네임으로 mock 로그인 처리
+  // 카카오는 실제 OAuth 연동: 카카오 authorize 페이지로 이동 → 콜백(/oauth/kakao/callback)에서 백엔드 로그인 처리.
+  const onKakaoLogin = () => {
+    window.location.href = getKakaoAuthorizeUrl();
+  };
+
+  // 네이버/Google 은 아직 연동 전이라, 클릭한 provider의 닉네임으로 mock 로그인 처리(추후 카카오와 동일 방식으로 교체).
   const onLogin = (nickname: string) => {
     setUser({ memberId: Date.now(), nickname, role: "CUSTOMER" }, "mock-access-token");
     navigate("/");
@@ -77,7 +83,7 @@ export default function LoginPage() {
           {/* Social login */}
           <div className="space-y-3">
             <button
-              onClick={() => onLogin("카카오 사용자")}
+              onClick={onKakaoLogin}
               className="social-btn w-full flex items-center justify-center gap-3 py-3 rounded-xl font-semibold text-sm"
               style={{ backgroundColor: "#FEE500", color: "#191919" }}
             >
