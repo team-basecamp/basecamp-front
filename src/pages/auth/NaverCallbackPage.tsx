@@ -1,0 +1,85 @@
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { loginWithNaver } from "../../api/auth";
+import useAuthStore from "../../store/authStore";
+
+/** 네이버 authorize 로 이동하기 직전에 저장해 둔 state 를 대조하기 위한 sessionStorage 키. */
+export const NAVER_STATE_KEY = "naver_oauth_state";
+
+/**
+ * 네이버 로그인 콜백 페이지 (/oauth/naver/callback)
+ * - 네이버 authorize 후 redirect_uri 로 돌아오는 지점. 주소의 code/state 를 확인한다.
+ * - CSRF 방지: 돌아온 state 가 이동 직전 저장한 state 와 일치할 때만 백엔드 로그인을 진행한다.
+ * - 이후 흐름(백엔드 code+state 교환 → JWT/유저 저장 → 홈)은 카카오와 동일.
+ */
+export default function NaverCallbackPage() {
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const setUser = useAuthStore((s) => s.setUser);
+  const [error, setError] = useState<string | null>(null);
+  // 인가 코드는 일회용이라, StrictMode 이펙트 이중 실행으로 두 번 처리되지 않도록 가드한다.
+  const requested = useRef(false);
+
+  useEffect(() => {
+    if (requested.current) return;
+    requested.current = true;
+
+    const errorParam = params.get("error");
+    if (errorParam) {
+      setError("네이버 로그인이 취소되었거나 거부되었습니다.");
+      return;
+    }
+
+    const code = params.get("code");
+    const state = params.get("state");
+    if (!code || !state) {
+      setError("인가 코드 또는 state 가 전달되지 않았습니다.");
+      return;
+    }
+
+    // CSRF 방지: 저장해 둔 state 와 대조(대조 후 일회성으로 제거).
+    const savedState = sessionStorage.getItem(NAVER_STATE_KEY);
+    sessionStorage.removeItem(NAVER_STATE_KEY);
+    if (!savedState || savedState !== state) {
+      setError("잘못된 접근입니다(state 불일치). 다시 시도해 주세요.");
+      return;
+    }
+
+    loginWithNaver(code, state)
+      .then((res) => {
+        // 백엔드 계약(userId/profileImageUrl)을 authStore 형태(memberId/profileImage)로 매핑한다.
+        setUser(
+          {
+            memberId: res.userId,
+            nickname: res.nickname,
+            email: res.email,
+            profileImage: res.profileImageUrl ?? undefined,
+            role: res.role,
+          },
+          res.accessToken
+        );
+        navigate("/", { replace: true });
+      })
+      .catch(() => {
+        setError("로그인 처리에 실패했습니다. 다시 시도해 주세요.");
+      });
+  }, [params, setUser, navigate]);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background p-6 text-center">
+      {error ? (
+        <>
+          <p className="text-sm text-red-600">{error}</p>
+          <button
+            onClick={() => navigate("/login", { replace: true })}
+            className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 hover:bg-gray-200"
+          >
+            로그인 화면으로
+          </button>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">네이버 로그인 처리 중…</p>
+      )}
+    </div>
+  );
+}

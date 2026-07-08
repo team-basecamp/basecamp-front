@@ -10,6 +10,7 @@ import Layout from "../components/layout/Layout";
 
 import LoginPage from "../pages/auth/LoginPage";
 import KakaoCallbackPage from "../pages/auth/KakaoCallbackPage";
+import NaverCallbackPage from "../pages/auth/NaverCallbackPage";
 import HomePage from "../pages/HomePage";
 import MapPage from "../pages/map/MapPage";
 import CampsiteListPage from "../pages/campsite/CampsiteListPage";
@@ -40,6 +41,7 @@ const router = createBrowserRouter([
   // 로그인 / 소셜 콜백 (레이아웃 없음)
   { path: "/login", element: <LoginPage /> },
   { path: "/oauth/kakao/callback", element: <KakaoCallbackPage /> },
+  { path: "/oauth/naver/callback", element: <NaverCallbackPage /> },
 
   // 고객 화면
   {

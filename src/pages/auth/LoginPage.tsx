@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import useAuthStore from "../../store/authStore";
-import { getKakaoAuthorizeUrl } from "../../api/auth";
+import { getKakaoAuthorizeUrl, getNaverAuthorizeUrl } from "../../api/auth";
+import { NAVER_STATE_KEY } from "./NaverCallbackPage";
 import "./LoginPage.css";
 
 function BasecampLogo({ size = 40 }: { size?: number }) {
@@ -29,7 +30,14 @@ export default function LoginPage() {
     window.location.href = getKakaoAuthorizeUrl();
   };
 
-  // 네이버/Google 은 아직 연동 전이라, 클릭한 provider의 닉네임으로 mock 로그인 처리(추후 카카오와 동일 방식으로 교체).
+  // 네이버는 CSRF 방지용 state 를 만들어 저장한 뒤 authorize 로 이동 → 콜백에서 state 대조 후 백엔드 로그인 처리.
+  const onNaverLogin = () => {
+    const state = crypto.randomUUID();
+    sessionStorage.setItem(NAVER_STATE_KEY, state);
+    window.location.href = getNaverAuthorizeUrl(state);
+  };
+
+  // Google 은 아직 연동 전이라, 클릭 시 mock 로그인 처리(추후 카카오/네이버와 동일 방식으로 교체).
   const onLogin = (nickname: string) => {
     setUser({ memberId: Date.now(), nickname, role: "CUSTOMER" }, "mock-access-token");
     navigate("/");
@@ -94,7 +102,7 @@ export default function LoginPage() {
             </button>
 
             <button
-              onClick={() => onLogin("네이버 사용자")}
+              onClick={onNaverLogin}
               className="social-btn w-full flex items-center justify-center gap-3 py-3 rounded-xl font-semibold text-sm text-white"
               style={{ backgroundColor: "#03C75A" }}
             >
