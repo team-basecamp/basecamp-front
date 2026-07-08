@@ -60,6 +60,21 @@ export const getNaverAuthorizeUrl = (state: string) => {
   return `${NAVER_AUTHORIZE_URL}?${params.toString()}`;
 };
 
+const GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
+
+/**
+ * 구글 인증(authorize) 페이지 URL. 카카오와 동일하게 state 없이 code 릴레이만 사용한다.
+ */
+export const getGoogleAuthorizeUrl = () => {
+  const params = new URLSearchParams({
+    client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+    redirect_uri: import.meta.env.VITE_GOOGLE_REDIRECT_URI,
+    response_type: "code",
+    scope: "openid email profile",
+  });
+  return `${GOOGLE_AUTHORIZE_URL}?${params.toString()}`;
+};
+
 // 인터셉터가 res.data 로 언래핑하므로 실제 resolve 값은 LoginResponse 다(axios 타입과 런타임을 일치시키는 캐스팅).
 export const loginWithKakao = (code: string) =>
   instance.post<LoginResponse>("/v1/auth/login/kakao", { code }) as unknown as Promise<LoginResponse>;

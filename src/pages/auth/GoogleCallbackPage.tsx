@@ -1,20 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { loginWithNaver } from "../../api/auth";
+import { loginWithGoogle } from "../../api/auth";
 import useAuthStore from "../../store/authStore";
 
 /**
- * 네이버 로그인 콜백 페이지 (/oauth/naver/callback)
- * - 네이버 authorize 후 redirect_uri 로 돌아오는 지점. 주소의 code/state 를 그대로 백엔드로 넘긴다.
- * - CSRF 방지(state 서명·만료 검증)는 서버가 담당하므로 프론트는 별도 대조를 하지 않는다.
- * - 이후 흐름(백엔드 code+state 교환 → JWT/유저 저장 → 홈)은 카카오와 동일.
+ * 구글 로그인 콜백 페이지 (/oauth/google/callback)
+ * - 구글 authorize 후 redirect_uri 로 돌아오는 지점. 주소의 인가 코드(?code=)를 백엔드로 넘겨
+ *   자체 JWT(accessToken)를 받고, authStore 에 사용자/토큰을 저장한 뒤 홈으로 이동한다.
+ * - 구글은 state 를 쓰지 않으므로 카카오와 동일한 흐름이다. refreshToken 은 백엔드가 HttpOnly 쿠키로 내려준다.
  */
-export default function NaverCallbackPage() {
+export default function GoogleCallbackPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const setUser = useAuthStore((s) => s.setUser);
   const [error, setError] = useState<string | null>(null);
-  // 인가 코드는 일회용이라, StrictMode 이펙트 이중 실행으로 두 번 처리되지 않도록 가드한다.
+  // 인가 코드는 일회용이라, StrictMode 이펙트 이중 실행으로 두 번 호출되지 않도록 가드한다.
   const requested = useRef(false);
 
   useEffect(() => {
@@ -23,19 +23,17 @@ export default function NaverCallbackPage() {
 
     const errorParam = params.get("error");
     if (errorParam) {
-      setError("네이버 로그인이 취소되었거나 거부되었습니다.");
+      setError("구글 로그인이 취소되었거나 거부되었습니다.");
       return;
     }
 
     const code = params.get("code");
-    const state = params.get("state");
-    if (!code || !state) {
-      setError("인가 코드 또는 state 가 전달되지 않았습니다.");
+    if (!code) {
+      setError("인가 코드가 전달되지 않았습니다.");
       return;
     }
 
-    // state 검증(서명·만료)은 백엔드가 수행한다. 여기서는 받은 값을 그대로 넘기기만 한다.
-    loginWithNaver(code, state)
+    loginWithGoogle(code)
       .then((res) => {
         // 백엔드 계약(userId/profileImageUrl)을 authStore 형태(memberId/profileImage)로 매핑한다.
         setUser(
@@ -45,7 +43,7 @@ export default function NaverCallbackPage() {
             email: res.email,
             profileImage: res.profileImageUrl ?? undefined,
             role: res.role,
-            provider: "NAVER",
+            provider: "GOOGLE",
           },
           res.accessToken
         );
@@ -69,7 +67,7 @@ export default function NaverCallbackPage() {
           </button>
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">네이버 로그인 처리 중…</p>
+        <p className="text-sm text-muted-foreground">구글 로그인 처리 중…</p>
       )}
     </div>
   );

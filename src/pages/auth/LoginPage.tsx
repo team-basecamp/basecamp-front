@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import useAuthStore from "../../store/authStore";
-import { getKakaoAuthorizeUrl, getNaverAuthorizeUrl, getNaverLoginState } from "../../api/auth";
+import { getKakaoAuthorizeUrl, getNaverAuthorizeUrl, getNaverLoginState, getGoogleAuthorizeUrl } from "../../api/auth";
 import "./LoginPage.css";
 
 function BasecampLogo({ size = 40 }: { size?: number }) {
@@ -22,7 +21,6 @@ function BasecampLogo({ size = 40 }: { size?: number }) {
  */
 export default function LoginPage() {
   const navigate = useNavigate();
-  const setUser = useAuthStore((s) => s.setUser);
 
   // 카카오는 실제 OAuth 연동: 카카오 authorize 페이지로 이동 → 콜백(/oauth/kakao/callback)에서 백엔드 로그인 처리.
   const onKakaoLogin = () => {
@@ -39,10 +37,9 @@ export default function LoginPage() {
     }
   };
 
-  // Google 은 아직 연동 전이라, 클릭 시 mock 로그인 처리(추후 카카오/네이버와 동일 방식으로 교체).
-  const onLogin = (nickname: string) => {
-    setUser({ memberId: Date.now(), nickname, role: "CUSTOMER" }, "mock-access-token");
-    navigate("/");
+  // 구글은 state 없이 카카오와 동일: authorize 로 이동 → 콜백(/oauth/google/callback)에서 백엔드 로그인 처리.
+  const onGoogleLogin = () => {
+    window.location.href = getGoogleAuthorizeUrl();
   };
 
   return (
@@ -113,7 +110,7 @@ export default function LoginPage() {
             </button>
 
             <button
-              onClick={() => onLogin("Google 사용자")}
+              onClick={onGoogleLogin}
               className="social-btn w-full flex items-center justify-center gap-3 py-3 rounded-xl font-semibold text-sm bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
             >
               <svg width="18" height="18" viewBox="0 0 18 18">

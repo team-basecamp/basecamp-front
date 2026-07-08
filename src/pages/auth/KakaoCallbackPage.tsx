@@ -43,6 +43,7 @@ export default function KakaoCallbackPage() {
             email: res.email,
             profileImage: res.profileImageUrl ?? undefined,
             role: res.role,
+            provider: "KAKAO",
           },
           res.accessToken
         );

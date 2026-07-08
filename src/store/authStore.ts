@@ -10,12 +10,16 @@ import { persist } from "zustand/middleware";
 
 export type MemberRole = "CUSTOMER" | "BUSINESS" | "ADMIN";
 
+/** 소셜 로그인 제공자(백엔드 Provider enum과 동일 표기). 프로필 아바타 로고 표시 등에 사용. */
+export type SocialProvider = "KAKAO" | "GOOGLE" | "NAVER";
+
 export interface AuthUser {
   memberId: number;
   nickname: string;
   email?: string;
   profileImage?: string;
   role: MemberRole;
+  provider?: SocialProvider;
 }
 
 interface AuthState {
