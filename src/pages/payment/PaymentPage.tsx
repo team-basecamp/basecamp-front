@@ -6,7 +6,7 @@ import type { Camp } from "../../types";
 
 interface PaymentLocationState {
   camp: Camp;
-  reservation?: { name: string; phone: string; checkin: string; checkout: string; people: string; request: string };
+  reservation?: { name: string; phone: string; checkin: string; checkout: string; people: number; request: string };
   reservationId?: number;
 }
 

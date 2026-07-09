@@ -32,7 +32,9 @@ export default function CampsiteFormPage() {
     maxPeople: editingCamp?.maxPeople ?? 4,
     operatingHours: editingCamp?.operatingHours ?? "14:00 ~ 익일 11:00",
     firstImageUrl: editingCamp?.firstImageUrl ?? "",
-    description: editingCamp?.description ?? "",
+    lineIntro: editingCamp?.lineIntro ?? "",
+    intro: editingCamp?.intro ?? "",
+    homepage: editingCamp?.homepage ?? "",
   });
 
   const updateField = <K extends keyof typeof form>(key: K) => (
@@ -190,6 +192,17 @@ export default function CampsiteFormPage() {
         </div>
 
         <div>
+          <label className="text-sm font-semibold mb-1.5 block">캠핑장 웹사이트</label>
+          <input
+            type="text"
+            value={form.homepage}
+            onChange={updateField("homepage")}
+            placeholder="www.example.com"
+            className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
+          />
+        </div>
+
+        <div>
           <label className="text-sm font-semibold mb-1.5 block">대표 이미지 URL</label>
           <input
             type="text"
@@ -201,10 +214,21 @@ export default function CampsiteFormPage() {
         </div>
 
         <div>
-          <label className="text-sm font-semibold mb-1.5 block">소개</label>
+          <label className="text-sm font-semibold mb-1.5 block">한줄 소개</label>
+          <input
+            type="text"
+            value={form.lineIntro}
+            onChange={updateField("lineIntro")}
+            placeholder="캠핑장을 한 문장으로 소개해주세요"
+            className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold mb-1.5 block">상세 소개</label>
           <textarea
-            value={form.description}
-            onChange={updateField("description")}
+            value={form.intro}
+            onChange={updateField("intro")}
             placeholder="캠핑장을 소개해주세요"
             rows={5}
             className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground resize-none"

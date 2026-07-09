@@ -22,9 +22,10 @@ export interface Camp {
   price?: number;
   tags?: string[];
   image?: string;
-  description?: string;
+  lineIntro?: string;       // 한줄 소개 (고캠핑 API: lineIntro)
+  intro?: string;           // 상세 소개 (고캠핑 API: intro)
   facilities?: string[];
-  website?: string;
+  homepage?: string;        // 캠핑장 웹사이트 (고캠핑 API: homepage)
   operatingHours?: string;
   maxPeople?: number;
   reviewCount?: number;
