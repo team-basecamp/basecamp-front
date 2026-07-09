@@ -1,19 +1,34 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Minus, Plus } from "lucide-react";
 import { CAMPS } from "../../data/camps";
+
+interface ReservationLocationState {
+  checkIn?: string;
+  checkOut?: string;
+  guestCount?: number;
+}
 
 /**
  * 예약 정보 입력 페이지 (/campsites/:campsiteId/reservation)
  * - 예약자 정보/체크인·체크아웃/인원/요청사항을 입력받는 예약 플로우의 1단계(예약 정보 -> 결제)
  * - 입력값은 서버 저장 없이 navigate의 state로 결제 페이지(PaymentPage)에 그대로 전달됨
+ * - 캠핑장 상세 페이지에서 미리 선택한 체크인/체크아웃/예약 명수가 있으면 navigate state로 넘어와 초기값으로 반영됨
  */
 export default function ReservationPage() {
   const { campsiteId } = useParams<{ campsiteId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const camp = CAMPS.find((c) => c.contentId === Number(campsiteId));
+  const prefill = location.state as ReservationLocationState | null;
 
-  const [form, setForm] = useState({ name: "", phone: "", checkin: "", checkout: "", people: "2", request: "" });
+  const [form, setForm] = useState({
+    name: "", phone: "",
+    checkin: prefill?.checkIn ?? "",
+    checkout: prefill?.checkOut ?? "",
+    people: prefill?.guestCount ?? 1,
+    request: "",
+  });
 
   const updateForm = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -93,10 +108,25 @@ export default function ReservationPage() {
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-1.5 block">인원</label>
-          <select value={form.people} onChange={updateForm("people")} className="w-full bg-muted rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/50">
-            {[1, 2, 3, 4, 5, 6].map((n) => <option key={n}>{n}명</option>)}
-          </select>
+          <label className="text-sm font-medium mb-1.5 block">예약 명수</label>
+          <div className="flex items-center gap-3 bg-muted rounded-xl px-4 py-3">
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, people: Math.max(1, f.people - 1) }))}
+              disabled={form.people <= 1}
+              className="w-8 h-8 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Minus size={14} />
+            </button>
+            <span className="flex-1 text-center text-sm font-medium" style={{ fontFamily: "'DM Mono', monospace" }}>{form.people}명</span>
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, people: f.people + 1 }))}
+              className="w-8 h-8 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
         </div>
 
         <div>

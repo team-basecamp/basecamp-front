@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, MapPin, Heart, Phone, Globe, Clock, Users,
-  CheckCircle, Droplets, Wind, TreePine, Calendar, Plus,
+  ArrowLeft, MapPin, Heart, Phone, Globe, Users,
+  CheckCircle, Droplets, Wind, TreePine, Calendar, Plus, Minus,
   Edit3, Trash2, Camera, X,
 } from "lucide-react";
 import StarRow from "../../components/common/StarRow";
@@ -54,6 +54,7 @@ export default function CampsiteDetailPage() {
   const [likedReviews, setLikedReviews] = useState<Set<number>>(new Set()); // "도움돼요" 누른 리뷰 id 집합 (로컬 UI 상태, 서버 저장 안 됨)
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
+  const [guestCount, setGuestCount] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const MAX_REVIEW_IMAGES = 5;
 
@@ -87,7 +88,8 @@ export default function CampsiteDetailPage() {
     : "—";
 
   const onLoginRequest = () => navigate("/login");
-  const onReserve = () => navigate(`/campsites/${camp.contentId}/reservation`);
+  const onReserve = () =>
+    navigate(`/campsites/${camp.contentId}/reservation`, { state: { checkIn, checkOut, guestCount } });
   const onReviewClick = (review: Review) => navigate(`/reviews/${review.id}`);
 
   // 신규 작성/수정을 하나의 폼으로 처리: editId가 있으면 해당 리뷰를 갱신, 없으면 새 리뷰를 목록 맨 앞에 추가
@@ -175,13 +177,14 @@ export default function CampsiteDetailPage() {
           {/* Description */}
           <div className="bg-card border border-border rounded-2xl p-6">
             <h2 className="font-bold text-lg mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>캠핑장 소개</h2>
-            <p className="text-muted-foreground text-sm leading-relaxed mb-5">{camp.description}</p>
+            {camp.lineIntro && (
+              <p className="text-foreground text-sm font-medium mb-2">{camp.lineIntro}</p>
+            )}
+            <p className="text-muted-foreground text-sm leading-relaxed mb-5">{camp.intro}</p>
             <div className="grid grid-cols-2 gap-3 text-sm">
               {[
-                { icon: <Phone size={14} />, label: "전화", value: camp.tel },
-                { icon: <Globe size={14} />, label: "웹사이트", value: camp.website },
-                { icon: <Clock size={14} />, label: "이용시간", value: camp.operatingHours },
-                { icon: <Users size={14} />, label: "최대인원", value: camp.maxPeople ? `${camp.maxPeople}명` : "-" },
+                { icon: <Phone size={14} />, label: "전화번호", value: camp.tel },
+                { icon: <Globe size={14} />, label: "캠핑장 웹사이트", value: camp.homepage },
               ].map((item) => (
                 <div key={item.label} className="flex items-start gap-2">
                   <span className="text-primary mt-0.5 flex-shrink-0">{item.icon}</span>
@@ -394,9 +397,23 @@ export default function CampsiteDetailPage() {
               </div>
               <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5">
                 <Users size={14} className="text-primary" />
-                <select className="flex-1 bg-transparent text-sm outline-none">
-                  {[1, 2, 3, 4, 5, 6].map((n) => <option key={n}>{n}명</option>)}
-                </select>
+                <span className="flex-1 text-sm">예약 명수</span>
+                <button
+                  type="button"
+                  onClick={() => setGuestCount((n) => Math.max(1, n - 1))}
+                  disabled={guestCount <= 1}
+                  className="w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Minus size={12} />
+                </button>
+                <span className="w-6 text-center text-sm font-medium" style={{ fontFamily: "'DM Mono', monospace" }}>{guestCount}</span>
+                <button
+                  type="button"
+                  onClick={() => setGuestCount((n) => n + 1)}
+                  className="w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all"
+                >
+                  <Plus size={12} />
+                </button>
               </div>
             </div>
 
