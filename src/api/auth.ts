@@ -85,11 +85,11 @@ export const loginWithGoogle = (code: string) =>
 export const loginWithNaver = (code: string, state: string) =>
   instance.post<LoginResponse>("/v1/auth/login/naver", { code, state }) as unknown as Promise<LoginResponse>;
 
-// 로그아웃/탈퇴/재발급: refresh 는 쿠키로 오가므로 body 로 토큰을 싣지 않는다(백엔드 후속 스텝에서 연동).
+// 로그아웃/탈퇴: refresh 는 쿠키로 오가므로 body 로 토큰을 싣지 않는다(백엔드 후속 스텝에서 연동).
 export const logout = () => instance.post("/v1/auth/logout");
 
 export const withdraw = (reason: string) =>
   instance.post("/v1/auth/withdraw", { reason });
 
-export const refreshToken = () =>
-  instance.post<{ accessToken: string; tokenType: string }>("/v1/auth/token/refresh");
+// 토큰 재발급은 API 함수가 아니라 instance.ts 의 응답 인터셉터가 401 을 만났을 때 자동으로 수행한다.
+// (호출부에서 직접 부를 일이 없고, instance 로 호출하면 인터셉터와 무한 루프가 난다)

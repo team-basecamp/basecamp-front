@@ -26,6 +26,8 @@ interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
   setUser: (user: AuthUser, accessToken?: string) => void;
+  /** 토큰 재발급 시 user 는 그대로 두고 accessToken 만 교체한다. */
+  setAccessToken: (accessToken: string) => void;
   logout: () => void;
 }
 
@@ -35,6 +37,7 @@ const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       setUser: (user, accessToken) => set({ user, accessToken: accessToken ?? null }),
+      setAccessToken: (accessToken) => set({ accessToken }),
       logout: () => set({ user: null, accessToken: null }),
     }),
     { name: "auth-storage" }
