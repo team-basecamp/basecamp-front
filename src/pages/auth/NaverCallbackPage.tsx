@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { loginWithNaver } from "../../api/auth";
+import { getApiErrorMessage } from "../../lib/apiError";
 import useAuthStore from "../../store/authStore";
 
 /**
@@ -45,13 +46,14 @@ export default function NaverCallbackPage() {
             email: res.email,
             profileImage: res.profileImageUrl ?? undefined,
             role: res.role,
+            provider: "NAVER",
           },
           res.accessToken
         );
         navigate("/", { replace: true });
       })
-      .catch(() => {
-        setError("로그인 처리에 실패했습니다. 다시 시도해 주세요.");
+      .catch((err) => {
+        setError(getApiErrorMessage(err, "로그인 처리에 실패했습니다. 다시 시도해 주세요."));
       });
   }, [params, setUser, navigate]);
 

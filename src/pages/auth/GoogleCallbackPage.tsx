@@ -1,27 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { loginWithKakao } from "../../api/auth";
+import { loginWithGoogle } from "../../api/auth";
 import { getApiErrorMessage } from "../../lib/apiError";
 import useAuthStore from "../../store/authStore";
 
 /**
- * 카카오 로그인 콜백 페이지 (/oauth/kakao/callback)
- * - 카카오 authorize 후 redirect_uri 로 돌아오는 지점. 주소의 인가 코드(?code=)를 백엔드로 넘겨
+ * 구글 로그인 콜백 페이지 (/oauth/google/callback)
+ * - 구글 authorize 후 redirect_uri 로 돌아오는 지점. 주소의 인가 코드(?code=)를 백엔드로 넘겨
  *   자체 JWT(accessToken)를 받고, authStore 에 사용자/토큰을 저장한 뒤 홈으로 이동한다.
- * - refreshToken 은 백엔드가 HttpOnly 쿠키로 내려주므로 여기서 다루지 않는다.
+ * - 구글은 state 를 쓰지 않으므로 카카오와 동일한 흐름이다. refreshToken 은 백엔드가 HttpOnly 쿠키로 내려준다.
  */
-export default function KakaoCallbackPage() {
+export default function GoogleCallbackPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const setUser = useAuthStore((s) => s.setUser);
   const [error, setError] = useState<string | null>(null);
-  // 인가 코드는 일회용이라, StrictMode 의 이펙트 이중 실행으로 두 번 호출되지 않도록 가드한다.
+  // 인가 코드는 일회용이라, StrictMode 이펙트 이중 실행으로 두 번 호출되지 않도록 가드한다.
   const requested = useRef(false);
 
   useEffect(() => {
+    if (requested.current) return;
+    requested.current = true;
+
     const errorParam = params.get("error");
     if (errorParam) {
-      setError("카카오 로그인이 취소되었거나 거부되었습니다.");
+      setError("구글 로그인이 취소되었거나 거부되었습니다.");
       return;
     }
 
@@ -31,10 +34,7 @@ export default function KakaoCallbackPage() {
       return;
     }
 
-    if (requested.current) return;
-    requested.current = true;
-
-    loginWithKakao(code)
+    loginWithGoogle(code)
       .then((res) => {
         // 백엔드 계약(userId/profileImageUrl)을 authStore 형태(memberId/profileImage)로 매핑한다.
         setUser(
@@ -44,7 +44,7 @@ export default function KakaoCallbackPage() {
             email: res.email,
             profileImage: res.profileImageUrl ?? undefined,
             role: res.role,
-            provider: "KAKAO",
+            provider: "GOOGLE",
           },
           res.accessToken
         );
@@ -68,7 +68,7 @@ export default function KakaoCallbackPage() {
           </button>
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">카카오 로그인 처리 중…</p>
+        <p className="text-sm text-muted-foreground">구글 로그인 처리 중…</p>
       )}
     </div>
   );
