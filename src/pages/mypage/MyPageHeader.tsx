@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, Calendar, Heart, FileText, LogOut } from "lucide-react";
 import { POSTS } from "../../data/posts";
+import useLogout from "../../hooks/useLogout";
 import useAuthStore from "../../store/authStore";
 import useNotificationStore from "../../store/notificationStore";
 import useReservationStore from "../../store/reservationStore";
@@ -24,7 +25,7 @@ const TAB_ROUTES: Record<MyTab, string> = {
 export default function MyPageHeader({ active }: { active: MyTab }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
+  const logout = useLogout();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
   // reservationStore/wishlistStore(zustand)를 사용해 다른 페이지로 이동해도(예: 예약내역 -> 마이페이지) 예약/찜 개수가 그대로 유지되도록 함
   const reservations = useReservationStore((s) => s.reservations);
@@ -62,7 +63,7 @@ export default function MyPageHeader({ active }: { active: MyTab }) {
       {/* Account actions */}
       <div className="flex items-center justify-end gap-4 mb-4 -mt-2 px-1">
         <button
-          onClick={() => { logout(); navigate("/"); }}
+          onClick={() => void logout()}
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <LogOut size={12} /> 로그아웃

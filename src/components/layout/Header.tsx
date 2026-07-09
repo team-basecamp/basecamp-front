@@ -4,8 +4,9 @@
  * - 알림 뱃지 숫자는 notificationStore의 unreadCount를 그대로 구독해서 표시
  */
 import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Bell, LogOut, Menu, X, User, ChevronDown } from "lucide-react";
+import useLogout from "../../hooks/useLogout";
 import useAuthStore, { type SocialProvider } from "../../store/authStore";
 import useNotificationStore from "../../store/notificationStore";
 import "./Header.css";
@@ -83,9 +84,8 @@ export default function Header() {
   const [profileOpen, setProfileOpen] = useState(false);
 
   const location = useLocation();
-  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
+  const logout = useLogout();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   const isActive = (to: string) => location.pathname.startsWith(to);
@@ -96,9 +96,9 @@ export default function Header() {
   };
 
   const handleLogout = () => {
-    logout();
     closeMenus();
-    navigate("/");
+    // 서버의 refresh 토큰 폐기까지 기다리지 않고 메뉴부터 닫는다(useLogout 이 이동까지 처리).
+    void logout();
   };
 
   return (
