@@ -1,13 +1,11 @@
 import instance from "./instance";
-import type { Camp, WeatherDay } from "../types";
+import type { Camp, CampRegistrationRequest, WeatherDay } from "../types";
 
 /**
  * 캠핑장(campsite) 관련 API 함수 모음 - 목록/검색/상세/인기 캠핑장, 날씨, 찜하기,
  * 그리고 캠핑업체 전용 CRUD.
- * - 엔드포인트/스키마는 src/imports/pasted_text/api-endpoints.md 스펙을 따름
- * - 주의: 현재 pages/campsite/*, pages/business/* 등은 이 함수들을 호출하지 않고
- *   data/camps.ts의 mock 배열을 그대로 사용 중. 실제 백엔드 연동 시
- *   여기 함수들을 TanStack Query로 교체하면 됨.
+ * - createCampsite(POST /v1/camps/register), getMyCampsites(GET /v1/camps/my)는 실제 백엔드와 연동됨.
+ * - updateCampsite/deleteCampsite는 대응하는 백엔드 엔드포인트가 아직 없음.
  */
 export const getMapData = (mapX: number, mapY: number) =>
   instance.get("/v1/map", { params: { mapX, mapY } });
@@ -48,9 +46,12 @@ export const toggleWish = (contentId: number) =>
   });
 
 // 캠핑업체 전용
-export const createCampsite = (payload: Partial<Camp>) => instance.post("/v1/camps", payload);
+// 등록 직후 응답의 contentId는 항상 null (고캠핑 공공API 연동 캠핑장이 아니므로 자체 발급된 camp_id만 존재)
+export const createCampsite = (payload: CampRegistrationRequest) =>
+  instance.post<{ resultCode: string; resultMsg: string; data: Camp }>("/v1/camps/register", payload);
 
-export const getMyCampsites = () => instance.get<{ camps: Camp[] }>("/v1/camps/my");
+export const getMyCampsites = () =>
+  instance.get<{ resultCode: string; resultMsg: string; data: Camp[]; totalCount: number }>("/v1/camps/my");
 
 // 실제로는 수정(UPDATE) 처리 (REST 컨벤션상 POST로 구현됨)
 export const updateCampsite = (contentId: number, payload: Partial<Camp>) =>

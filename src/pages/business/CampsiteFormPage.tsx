@@ -1,17 +1,25 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import type { AxiosError } from "axios";
 import { CAMPS } from "../../data/camps";
-import { MY_OWNER_ID } from "./BusinessHeader";
-import type { Camp } from "../../types";
+import { createCampsite } from "../../api/campsite";
+import type { Camp, CampRegistrationRequest } from "../../types";
 
 const INDUTY_OPTIONS = ["일반야영장", "오토캠핑장", "글램핑", "카라반"];
+
+interface ValidationErrorItem {
+  field: string;
+  value?: string;
+  reason: string;
+}
 
 /**
  * 캠핑장 등록/수정 폼 (/business/campsites/new, /business/campsites/:contentId/edit)
  * - PostFormPage와 동일한 패턴: :contentId 파라미터 존재 여부로 등록/수정 모드를 나눔
- * - 등록 시 CAMPS 배열에 새 캠핑장을 추가(ownerId = MY_OWNER_ID)하고,
- *   수정 시 기존 캠핑장 객체를 Object.assign으로 직접 mutate함 (mock 데이터, 실제 백엔드 연동 전 단계)
+ * - 등록(신규)은 POST /v1/camps/register 실제 백엔드 API로 연동됨
+ * - 수정은 대응하는 백엔드 API가 아직 없어 기존 캠핑장 객체를 Object.assign으로 직접 mutate하는
+ *   mock 방식을 그대로 유지함
  */
 export default function CampsiteFormPage() {
   const { contentId } = useParams<{ contentId: string }>();
@@ -23,54 +31,70 @@ export default function CampsiteFormPage() {
   const [form, setForm] = useState({
     facltNm: editingCamp?.facltNm ?? "",
     addr1: editingCamp?.addr1 ?? "",
+    addr2: editingCamp?.addr2 ?? "",
     tel: editingCamp?.tel ?? "",
     induty: editingCamp?.induty ?? INDUTY_OPTIONS[0],
     gnrlSiteCo: editingCamp?.gnrlSiteCo ?? 0,
     autoSiteCo: editingCamp?.autoSiteCo ?? 0,
     glampSiteCo: editingCamp?.glampSiteCo ?? 0,
     price: editingCamp?.price ?? 0,
-    maxPeople: editingCamp?.maxPeople ?? 4,
-    operatingHours: editingCamp?.operatingHours ?? "14:00 ~ 익일 11:00",
     firstImageUrl: editingCamp?.firstImageUrl ?? "",
     lineIntro: editingCamp?.lineIntro ?? "",
-    intro: editingCamp?.intro ?? "",
     homepage: editingCamp?.homepage ?? "",
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const updateField = <K extends keyof typeof form>(key: K) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const raw = e.target.value;
-    const isNumberField = key === "gnrlSiteCo" || key === "autoSiteCo" || key === "glampSiteCo" || key === "price" || key === "maxPeople";
+    const isNumberField = key === "gnrlSiteCo" || key === "autoSiteCo" || key === "glampSiteCo" || key === "price";
     setForm((f) => ({ ...f, [key]: isNumberField ? Number(raw) : raw }));
   };
 
-  const canSubmit = form.facltNm.trim().length > 0 && form.addr1.trim().length > 0;
+  const canSubmit = form.facltNm.trim().length > 0 && form.addr1.trim().length > 0 && !submitting;
 
   const onBack = () => navigate("/business/campsites");
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     if (!canSubmit) return;
+
     if (isEdit) {
       Object.assign(editingCamp!, form);
-    } else {
-      const newCamp: Camp = {
-        contentId: Date.now(),
-        ownerId: MY_OWNER_ID,
-        mapX: 127.5,
-        mapY: 37.5,
-        rating: 0,
-        reservationCount: 0,
-        reviewCount: 0,
-        image: form.firstImageUrl,
-        tags: [],
-        facilities: [],
-        region: "미정",
-        ...form,
-      };
-      CAMPS.unshift(newCamp);
+      navigate("/business/campsites");
+      return;
     }
-    navigate("/business/campsites");
+
+    // maxPeople, operatingHours, intro는 백엔드 CampRegistrationRequest에
+    // 대응하는 필드가 없어 전송하지 않음(등록 API가 저장하지 않음)
+    const payload: CampRegistrationRequest = {
+      facltNm: form.facltNm,
+      addr1: form.addr1,
+      addr2: form.addr2 || undefined,
+      tel: form.tel,
+      induty: form.induty,
+      price: form.price,
+      gnrlSiteCo: form.gnrlSiteCo,
+      autoSiteCo: form.autoSiteCo,
+      glampSiteCo: form.glampSiteCo,
+      lineIntro: form.lineIntro || undefined,
+      firstImageUrl: form.firstImageUrl || undefined,
+      homepage: form.homepage || undefined,
+    };
+
+    setSubmitting(true);
+    setErrorMsg(null);
+    try {
+      await createCampsite(payload);
+      navigate("/business/campsites");
+    } catch (err) {
+      const axiosErr = err as AxiosError<{ message?: string; errors?: ValidationErrorItem[] }>;
+      const validationMsg = axiosErr.response?.data?.errors?.map((e) => e.reason).join("\n");
+      setErrorMsg(validationMsg || axiosErr.response?.data?.message || "캠핑장 등록에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -102,6 +126,17 @@ export default function CampsiteFormPage() {
             value={form.addr1}
             onChange={updateField("addr1")}
             placeholder="도로명 주소"
+            className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold mb-1.5 block">상세주소</label>
+          <input
+            type="text"
+            value={form.addr2}
+            onChange={updateField("addr2")}
+            placeholder="동/호수 등 상세 주소 (선택)"
             className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
           />
         </div>
@@ -159,35 +194,13 @@ export default function CampsiteFormPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm font-semibold mb-1.5 block">1박 요금 (원)</label>
-            <input
-              type="number" min={0} step={1000}
-              value={form.price}
-              onChange={updateField("price")}
-              className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-semibold mb-1.5 block">최대 인원</label>
-            <input
-              type="number" min={1}
-              value={form.maxPeople}
-              onChange={updateField("maxPeople")}
-              className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-        </div>
-
         <div>
-          <label className="text-sm font-semibold mb-1.5 block">이용 시간</label>
+          <label className="text-sm font-semibold mb-1.5 block">1박 요금 (원)</label>
           <input
-            type="text"
-            value={form.operatingHours}
-            onChange={updateField("operatingHours")}
-            placeholder="14:00 ~ 익일 11:00"
-            className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
+            type="number" min={0} step={1000}
+            value={form.price}
+            onChange={updateField("price")}
+            className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
 
@@ -224,16 +237,11 @@ export default function CampsiteFormPage() {
           />
         </div>
 
-        <div>
-          <label className="text-sm font-semibold mb-1.5 block">상세 소개</label>
-          <textarea
-            value={form.intro}
-            onChange={updateField("intro")}
-            placeholder="캠핑장을 소개해주세요"
-            rows={5}
-            className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground resize-none"
-          />
-        </div>
+        {errorMsg && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive whitespace-pre-line">
+            {errorMsg}
+          </div>
+        )}
 
         <div className="flex justify-end gap-3 pt-2">
           <button onClick={onBack} className="px-6 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all">
@@ -244,7 +252,7 @@ export default function CampsiteFormPage() {
             disabled={!canSubmit}
             className="px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {isEdit ? "수정 완료" : "등록하기"}
+            {submitting ? "등록 중..." : isEdit ? "수정 완료" : "등록하기"}
           </button>
         </div>
       </div>
