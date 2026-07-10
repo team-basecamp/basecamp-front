@@ -41,7 +41,8 @@ export default function CampsiteListPage() {
   const [usingFallback, setUsingFallback] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null); // 무한 스크롤 감지를 위한 하단 관찰 대상
 
-  const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.contentId}`);
+  // 자체 등록 캠핑장은 contentId가 항상 null이라 실제 PK인 campId로 식별해야 함
+  const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.campId ?? camp.contentId}`);
 
   // 검색어만 300ms 디바운스 (지역/유형/정렬/가격은 클릭 즉시 반영)
   useEffect(() => {
@@ -218,7 +219,7 @@ export default function CampsiteListPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {camps.map((camp, i) => (
             <div
-              key={camp.contentId}
+              key={camp.campId ?? camp.contentId}
               className="camp-grid-item"
               style={{ animationDelay: `${(i % PAGE_SIZE) * 0.05}s` }}
             >

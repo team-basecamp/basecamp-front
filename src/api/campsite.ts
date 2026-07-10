@@ -27,8 +27,9 @@ export const getCampsites = (params: GetCampsitesParams = {}) =>
     { params }
   );
 
-export const getCampsiteDetail = (contentId: number) =>
-  instance.get<{ resultCode: string; resultMsg: string; data: Camp }>(`/v1/camps/content/${contentId}`);
+// campId(실제 PK)로 상세 조회. 자체 등록 캠핑장은 contentId가 null이라 PK 기준으로 통일한다.
+export const getCampsiteDetail = (campId: number) =>
+  instance.get<{ resultCode: string; resultMsg: string; data: Camp }>(`/v1/camps/${campId}`);
 
 export const getHotCampsites = (sortBy: "rating" | "reservationCount" = "rating", numOfRows = 10, pageNo = 1) =>
   instance.get<{ resultCode: string; resultMsg: string; data: Camp[] }>("/v1/camps/hot", {
