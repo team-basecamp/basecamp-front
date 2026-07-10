@@ -1,9 +1,11 @@
 // ─── Camp (matches 고캠핑 API schema 및 ERD의 camps 테이블) ─────
 export interface Camp {
   contentId: number;
+  campId?: number;          // 실제 PK(camps.camp_id). 자체 등록 캠핑장은 contentId가 항상 null이라 식별에 이 값을 써야 함
   ownerId?: number;         // 캠핑업체 회원(users.user_id) - 이 캠핑장을 소유/관리하는 업체 계정
   facltNm: string;          // 시설명
   addr1: string;            // 주소
+  addr2?: string;           // 상세주소
   mapX: number;
   mapY: number;
   firstImageUrl: string;
@@ -29,6 +31,24 @@ export interface Camp {
   operatingHours?: string;
   maxPeople?: number;
   reviewCount?: number;
+}
+
+// ─── Camp Registration (POST /v1/camps/register 요청 바디) ───────
+// 백엔드 CampRegistrationRequest(domain/camp/dto/request)와 1:1 대응.
+// tel은 "010-1234-5678" 또는 "033-123-4567" 형태의 정규식 검증을 백엔드에서 수행한다.
+export interface CampRegistrationRequest {
+  facltNm: string;          // 필수, 2~100자
+  addr1: string;            // 필수, 최대 200자
+  tel: string;              // 필수, 전화번호 형식
+  induty: string;           // 필수, 최대 100자
+  price: number;            // 필수, 0 이상
+  addr2?: string;           // 최대 200자
+  gnrlSiteCo?: number;      // 0~10000
+  autoSiteCo?: number;      // 0~10000
+  glampSiteCo?: number;     // 0~10000
+  lineIntro?: string;       // 최대 500자
+  firstImageUrl?: string;   // 최대 255자
+  homepage?: string;        // 최대 255자
 }
 
 // ─── Review ─────────────────────────────────────────────────────
