@@ -26,6 +26,7 @@ import PostListPage from "../pages/post/PostListPage";
 import PostDetailPage from "../pages/post/PostDetailPage";
 import PostFormPage from "../pages/post/PostFormPage";
 import MyPage from "../pages/mypage/MyPage";
+import ProfileEditPage from "../pages/mypage/ProfileEditPage";
 import WishlistPage from "../pages/mypage/WishlistPage";
 import MyPostsPage from "../pages/mypage/MyPostsPage";
 import WithdrawPage from "../pages/mypage/WithdrawPage";
@@ -67,6 +68,7 @@ const router = createBrowserRouter([
       { path: "posts/:postId", element: <PostDetailPage /> },
       { path: "posts/:postId/edit", element: <PostFormPage /> },
       { path: "mypage", element: <MyPage /> },
+      { path: "mypage/profile", element: <ProfileEditPage /> },
       { path: "mypage/wishlist", element: <WishlistPage /> },
       { path: "mypage/posts", element: <MyPostsPage /> },
       { path: "mypage/withdraw", element: <WithdrawPage /> },

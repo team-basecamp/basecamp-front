@@ -1,23 +1,41 @@
 import instance from "./instance";
 import type { Post } from "../types";
 import type { WishCamp } from "../types";
+import type { MemberRole } from "../store/authStore";
 
 /**
  * 회원(member) 관련 API 함수 모음 - 내 프로필/위시리스트/작성글/알림 조회.
- * - 엔드포인트/스키마는 src/imports/pasted_text/api-endpoints.md 스펙을 따름
- * - 주의: 현재 pages/mypage/*는 이 함수들을 호출하지 않고 store/wishlistStore.ts,
- *   store/notificationStore.ts, data/posts.ts 등의 mock 데이터를 그대로 사용 중.
+ * - 내 프로필(조회/수정)은 백엔드 UserController 계약을 따른다: GET·PATCH /v1/users/me.
+ * - 위시리스트/작성글/알림은 아직 백엔드 미구현이라 pages/mypage/*가 store/data mock 을 그대로 사용 중.
  *   실제 백엔드 연동 시 여기 함수들을 TanStack Query로 교체하면 됨.
+ * - instance 의 응답 인터셉터가 res.data 로 언래핑하므로, 각 함수의 실제 resolve 값은 제네릭 타입 그대로다.
  */
-export interface MemberProfile {
-  memberId: number;
-  nickname: string;
+
+/** 내 프로필(MyProfileResponse). 백엔드 필드명을 그대로 따른다. */
+export interface MyProfile {
+  userId: number;
   email: string;
-  profileImage: string;
+  nickname: string;
+  profileImageUrl: string | null;
+  provider: string;
+  role: MemberRole;
+  status: "ACTIVE" | "BLACKLISTED" | "WITHDRAWN";
   createdAt: string;
 }
 
-export const getMyProfile = () => instance.get<MemberProfile>("/v1/members/me");
+/** 내 프로필 수정 요청. profileImageUrl 을 비우거나 null 로 보내면 이미지를 제거한다. */
+export interface UpdateProfileRequest {
+  nickname: string;
+  profileImageUrl?: string | null;
+}
+
+/** 내 프로필 조회. */
+export const getMyProfile = () =>
+  instance.get<MyProfile>("/v1/users/me") as unknown as Promise<MyProfile>;
+
+/** 내 프로필(닉네임·프로필 이미지) 수정. 성공 시 갱신된 프로필을 돌려준다. */
+export const updateMyProfile = (body: UpdateProfileRequest) =>
+  instance.patch<MyProfile>("/v1/users/me", body) as unknown as Promise<MyProfile>;
 
 export const getMyWishlist = () =>
   instance.get<{ wishlist: WishCamp[] }>("/v1/members/me/wishlist");
