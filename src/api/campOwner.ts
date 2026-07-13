@@ -1,4 +1,5 @@
 import instance from "./instance";
+import type { Page } from "./page";
 
 /**
  * 캠핑업체(CAMP_OWNER) 권한 승격 관련 API.
@@ -32,18 +33,6 @@ export interface CampOwnerApplyRequest {
   businessNumber: string;
   businessName: string;
   representativeName: string;
-}
-
-/** Spring Data Page 응답 중 화면에서 쓰는 필드만 추린다. */
-export interface Page<T> {
-  content: T[];
-  totalElements: number;
-  totalPages: number;
-  /** 현재 페이지 번호(0-base). */
-  number: number;
-  size: number;
-  first: boolean;
-  last: boolean;
 }
 
 // ── 회원 ──────────────────────────────────────────────
