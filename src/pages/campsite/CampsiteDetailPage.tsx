@@ -37,7 +37,15 @@ export default function CampsiteDetailPage() {
     let cancelled = false;
     setCampLoading(true);
     getCampsiteDetail(Number(contentId))
-      .then((res: any) => { if (!cancelled) setCamp(res.data); })
+      .then((res: any) => {
+        if (cancelled) return;
+        setCamp(res.data);
+        // ReservationPage가 아직 mock 데이터(CAMPS)에서만 캠핑장을 조회하므로,
+        // 공공 API로 불러온 캠핑장도 CAMPS에 없으면 등록해 예약 페이지 이동 시 찾을 수 있게 한다.
+        if (res.data && !CAMPS.some((c) => c.contentId === res.data.contentId)) {
+          CAMPS.push(res.data);
+        }
+      })
       .catch(() => { if (!cancelled) setCamp(CAMPS.find((c) => c.contentId === Number(contentId))); })
       .finally(() => { if (!cancelled) setCampLoading(false); });
     return () => { cancelled = true; };
