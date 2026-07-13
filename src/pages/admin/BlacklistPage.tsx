@@ -13,7 +13,7 @@ import AdminHeader from "./AdminHeader";
  * 블랙리스트(제재 회원) 관리 화면 (/admin/blacklist)
  * - 제재 상태인 회원을 제재 일시 최신순으로 조회하고, 제재를 해제한다.
  *   (신규 제재는 회원 관리 화면에서 처리한다. 제재에는 만료 개념이 없고 수동 해제만 있다.)
- * - GET /v1/admin/users/blacklist, DELETE /v1/admin/users/{id}/blacklist
+ * - GET /v1/admin/users/blacklist, POST /v1/admin/users/{id}/blacklist/release
  */
 export default function BlacklistPage() {
   const [page, setPage] = useState(0);

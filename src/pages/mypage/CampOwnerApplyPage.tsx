@@ -11,16 +11,21 @@ import {
 import RequireLogin from "../../components/common/RequireLogin";
 import { getApiErrorMessage } from "../../lib/apiError";
 import useAuthStore from "../../store/authStore";
+import useRole from "../../hooks/useRole";
 
 /**
  * 캠핑업체 권한 승격 신청 (/mypage/camp-owner)
  * - CUSTOMER 회원이 사업자 정보를 제출해 CAMP_OWNER 승격을 신청한다.
  * - 이미 신청 이력이 있으면 최신 1건의 심사 상태를 보여준다.
- *   PENDING(심사 중) / APPROVED(승인 — 재로그인 안내) / REJECTED(반려 — 사유 + 재신청).
+ *   PENDING(심사 중) / APPROVED(승인) / REJECTED(반려 — 사유 + 재신청).
+ * - 이미 CAMP_OWNER 로 승격된 회원은 신청 폼 대신 결과(승인 내역)만 확인할 수 있다.
+ *   승격되면 토큰 권한이 바뀌어 헤더 메뉴가 전환되므로, 결과 확인용 진입 경로를 별도로 열어 둔다(Header 참고).
  */
 export default function CampOwnerApplyPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const role = useRole();
+  const isCampOwner = role === "CAMP_OWNER";
   const queryClient = useQueryClient();
 
   // 반려 후 "다시 신청"을 누르면 폼을 다시 연다.
@@ -42,7 +47,8 @@ export default function CampOwnerApplyPage() {
 
   if (!user) return <RequireLogin />;
 
-  const showForm = !application || (application.status === "REJECTED" && reapplying);
+  // 승격된 회원에게는 절대 신청 폼을 보이지 않는다(재신청도 불가 — 백엔드가 409 ALREADY_CAMP_OWNER 로 막는다).
+  const showForm = !isCampOwner && (!application || (application.status === "REJECTED" && reapplying));
 
   return (
     <div className="max-w-lg mx-auto px-4 sm:px-6 py-10">
@@ -68,15 +74,26 @@ export default function CampOwnerApplyPage() {
             void queryClient.invalidateQueries({ queryKey: ["campOwnerApplication", "me"] });
           }}
         />
+      ) : application ? (
+        <StatusCard application={application} isCampOwner={isCampOwner} onReapply={() => setReapplying(true)} />
       ) : (
-        <StatusCard application={application!} onReapply={() => setReapplying(true)} />
+        // 신청 이력 없이 CAMP_OWNER 인 회원(직접 부여 등)도 결과 화면에서 튕기지 않도록 안내 카드를 보인다.
+        <AlreadyCampOwnerCard />
       )}
     </div>
   );
 }
 
 /** 심사 상태 표시 카드 (PENDING / APPROVED / REJECTED). */
-function StatusCard({ application, onReapply }: { application: CampOwnerApplication; onReapply: () => void }) {
+function StatusCard({
+  application,
+  isCampOwner,
+  onReapply,
+}: {
+  application: CampOwnerApplication;
+  isCampOwner: boolean;
+  onReapply: () => void;
+}) {
   const navigate = useNavigate();
 
   if (application.status === "PENDING") {
@@ -102,7 +119,11 @@ function StatusCard({ application, onReapply }: { application: CampOwnerApplicat
           <span className="font-bold">승인되었습니다</span>
         </div>
         <p className="text-sm text-muted-foreground mb-5">
-          캠핑업체 권한이 부여되었습니다. <span className="text-foreground font-medium">다시 로그인</span>하면 캠핑업체 대시보드를 이용할 수 있습니다.
+          {isCampOwner ? (
+            <>캠핑업체 권한이 부여되었습니다. 이제 캠핑장을 직접 등록·관리할 수 있습니다.</>
+          ) : (
+            <>캠핑업체 권한이 부여되었습니다. <span className="text-foreground font-medium">다시 로그인</span>하면 캠핑업체 대시보드를 이용할 수 있습니다.</>
+          )}
         </p>
         <ApplicationSummary application={application} />
         <button
@@ -134,6 +155,28 @@ function StatusCard({ application, onReapply }: { application: CampOwnerApplicat
         className="w-full mt-5 py-3 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-all"
       >
         다시 신청하기
+      </button>
+    </div>
+  );
+}
+
+/** 신청 이력이 없는 CAMP_OWNER(직접 권한 부여 등) 안내. 결과 화면 진입 시 폼으로 튕기지 않게 한다. */
+function AlreadyCampOwnerCard() {
+  const navigate = useNavigate();
+  return (
+    <div className="bg-card border border-primary/30 rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-4 text-primary">
+        <CheckCircle size={20} />
+        <span className="font-bold">이미 캠핑업체 회원입니다</span>
+      </div>
+      <p className="text-sm text-muted-foreground mb-5">
+        캠핑업체 권한이 부여되어 있어 추가 전환 신청이 필요하지 않습니다. 캠핑장을 직접 등록·관리할 수 있습니다.
+      </p>
+      <button
+        onClick={() => navigate("/business/campsites")}
+        className="w-full py-3 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-all"
+      >
+        캠핑업체 대시보드로 이동
       </button>
     </div>
   );

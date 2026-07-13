@@ -6,7 +6,7 @@ import type { Page } from "./page";
  * - 회원 목록 조회: GET  /v1/admin/users            (status·role·keyword·page 선택)
  * - 회원 제재:      POST /v1/admin/users/{id}/blacklist   (강제 로그아웃 + 토큰 무효화)
  * - 제재 목록:      GET  /v1/admin/users/blacklist
- * - 제재 해제:      DELETE /v1/admin/users/{id}/blacklist
+ * - 제재 해제:      POST /v1/admin/users/{id}/blacklist/release
  *
  * instance 의 응답 인터셉터가 res.data 로 언래핑하므로, 각 함수의 실제 resolve 값은
  * 제네릭 타입 그대로다(axios 타입과 런타임을 일치시키는 캐스팅).
@@ -67,4 +67,4 @@ export const getBlacklistedUsers = (page = 0, size = 20) =>
 
 /** 회원 제재 해제. 제재 상태가 아닌 회원이면 409. */
 export const releaseUser = (userId: number) =>
-  instance.delete<void>(`/v1/admin/users/${userId}/blacklist`) as unknown as Promise<void>;
+  instance.post<void>(`/v1/admin/users/${userId}/blacklist/release`) as unknown as Promise<void>;

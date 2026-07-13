@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Calendar, Heart, FileText, LogOut } from "lucide-react";
+import { Bell, Calendar, Heart, FileText, LogOut, Pencil } from "lucide-react";
 import { POSTS } from "../../data/posts";
 import useLogout from "../../hooks/useLogout";
 import useAuthStore from "../../store/authStore";
@@ -62,6 +62,12 @@ export default function MyPageHeader({ active }: { active: MyTab }) {
 
       {/* Account actions */}
       <div className="flex items-center justify-end gap-4 mb-4 -mt-2 px-1">
+        <button
+          onClick={() => navigate("/mypage/profile")}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Pencil size={12} /> 정보 수정
+        </button>
         <button
           onClick={() => void logout()}
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
