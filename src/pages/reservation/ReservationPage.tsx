@@ -24,6 +24,17 @@ const formatPhone = (value: string) => {
   return `${digits.slice(0, 3)}-${digits.slice(3, 3 + middle)}-${digits.slice(3 + middle)}`;
 };
 
+/** Date → yyyy-MM-dd (로컬 시간 기준. toISOString은 UTC라 새벽에 하루 밀린다) */
+const toDateStr = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** yyyy-MM-dd 문자열에 하루를 더한다 */
+const addDay = (dateStr: string) => {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  return toDateStr(d);
+};
+
 export default function ReservationPage() {
   const { campsiteId } = useParams<{ campsiteId: string }>();
   const navigate = useNavigate();
@@ -54,7 +65,10 @@ export default function ReservationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  // 백엔드 @Future 검증 때문에 오늘은 선택 불가. 체크인은 내일부터
+  const tomorrow = addDay(toDateStr(new Date()));
+  // 체크아웃은 체크인 다음 날부터 (체크인 미선택이면 모레)
+  const minCheckOut = form.checkin ? addDay(form.checkin) : addDay(tomorrow);
 
   const updateForm = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -109,7 +123,7 @@ export default function ReservationPage() {
 
       // 예약은 PENDING_PAYMENT 상태로 생성됨 → 결제 페이지로 reservationId 전달
       navigate("/payment", {
-        state: { camp, reservation: form, reservationId: reservation.reservationId, totalPrice },
+        state: { camp, reservation: form, reservationId: reservation.id, totalPrice },
       });
     } catch (e: any) {
         const code = e?.response?.data?.code;
@@ -180,18 +194,38 @@ export default function ReservationPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {[{ label: "체크인", key: "checkin" }, { label: "체크아웃", key: "checkout" }].map((f) => (
-            <div key={f.key}>
-              <label className="text-sm font-medium mb-1.5 block">{f.label}</label>
-              <input
-                type="date"
-                min={tomorrow}
-                value={(form as any)[f.key]}
-                onChange={updateForm(f.key)}
-                className="w-full bg-muted rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
-          ))}
+          {/* 체크인 */}
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">체크인</label>
+            <input
+              type="date"
+              min={tomorrow}
+              value={form.checkin}
+              onChange={(e) => {
+                const value = e.target.value;
+                setForm((f) => ({
+                  ...f,
+                  checkin: value,
+                  // 체크인이 바뀌어 체크아웃이 유효 범위를 벗어나면 초기화
+                  checkout: f.checkout && f.checkout <= value ? "" : f.checkout,
+                }));
+              }}
+              className="w-full bg-muted rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+
+          {/* 체크아웃 */}
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">체크아웃</label>
+            <input
+              type="date"
+              min={minCheckOut}
+              value={form.checkout}
+              onChange={(e) => setForm((f) => ({ ...f, checkout: e.target.value }))}
+              disabled={!form.checkin}
+              className="w-full bg-muted rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+            />
+          </div>
         </div>
 
         <div>
