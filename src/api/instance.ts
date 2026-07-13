@@ -29,12 +29,27 @@ interface TokenRefreshResponse {
 }
 
 /**
+ * 백엔드 공통 응답 봉투. 정상/오류 응답이 모두 이 구조로 내려온다.
+ * - 성공: { success: true, message, data }
+ * - 실패: { success: false, code, message, errors }
+ */
+export interface ApiResponse<T> {
+  success: boolean;
+  code?: string;
+  message: string;
+  data: T;
+  errors?: { field: string; value: string; reason: string }[];
+}
+
+/**
  * refresh 토큰(HttpOnly 쿠키)으로 access 토큰을 재발급받는다.
  * 백엔드가 회전(rotation)시킨 새 refresh 토큰은 Set-Cookie 로 자동 교체되므로 여기서 다룰 것이 없다.
+ *
+ * refreshClient 에는 응답 인터셉터가 없어 봉투가 벗겨지지 않으므로, data 를 직접 꺼낸다.
  */
 const requestRefreshToken = async () => {
-  const res = await refreshClient.post<TokenRefreshResponse>("/v1/auth/token/refresh");
-  return res.data.accessToken;
+  const res = await refreshClient.post<ApiResponse<TokenRefreshResponse>>("/v1/auth/token/refresh");
+  return res.data.data.accessToken;
 };
 
 // 요청 인터셉터: 매 요청마다 authStore에 저장된 accessToken을 Authorization 헤더에 자동으로 실어보낸다.
@@ -79,11 +94,20 @@ const forceLogout = () => {
 };
 
 // 응답 인터셉터:
-// - 성공 시 axios 응답 객체 전체가 아니라 res.data만 바로 반환하도록 언래핑.
+// - 백엔드가 모든 성공 응답을 { success, message, data } 봉투로 내려주므로, 실제 페이로드인 data 만 벗겨서 반환한다.
+//   덕분에 각 api 함수는 예전처럼 순수 DTO 만 받는다(봉투를 몰라도 된다).
+//   봉투가 없는 응답(204 No Content 등)은 그대로 통과시킨다.
 // - 401(access 토큰 만료) 응답을 받으면 refresh 토큰으로 재발급을 한 번 시도하고 원요청을 재시도한다.
 //   재발급까지 실패하면(=refresh 만료/폐기/탈취 의심) 로그아웃 후 로그인 화면으로 보낸다.
 instance.interceptors.response.use(
-  (res) => res.data,
+  (res) => {
+    // res.data 는 any 다. 봉투면 data 만, 아니면(204 등) 그대로 반환한다.
+    const body = res.data;
+    if (body && typeof body === "object" && "success" in body) {
+      return body.data;
+    }
+    return body;
+  },
   async (err: AxiosError) => {
     const original = err.config as RetriableConfig | undefined;
     const hadSession = useAuthStore.getState().accessToken !== null;
