@@ -29,7 +29,7 @@ export default function CampsiteDetailPage() {
   const toggleWish = useWishlistStore((s) => s.toggleWish);
 
   const [camp, setCamp] = useState<Camp | undefined>(
-    CAMPS.find((c) => c.contentId === Number(contentId))
+    CAMPS.find((c) => (c.campId ?? c.contentId) === Number(contentId))
   );
   const [campLoading, setCampLoading] = useState(true);
 
@@ -39,14 +39,17 @@ export default function CampsiteDetailPage() {
     getCampsiteDetail(Number(contentId))
       .then((res: any) => {
         if (cancelled) return;
-        setCamp(res.data);
-        // ReservationPage가 아직 mock 데이터(CAMPS)에서만 캠핑장을 조회하므로,
-        // 공공 API로 불러온 캠핑장도 CAMPS에 없으면 등록해 예약 페이지 이동 시 찾을 수 있게 한다.
-        if (res.data && !CAMPS.some((c) => c.contentId === res.data.contentId)) {
-          CAMPS.push(res.data);
+        const fetched: Camp = res.data;
+        setCamp(fetched);
+        // ReservationPage가 아직 mock 데이터(CAMPS)에서 contentId 기준으로만 캠핑장을 조회하므로,
+        // 공공 API로 불러온 캠핑장과 자체 등록 캠핑장(contentId가 null이라 campId로 식별)도
+        // 라우팅에 쓰인 id를 contentId 자리에 맞춰 등록해두어 예약 페이지에서 찾을 수 있게 한다.
+        const key = fetched?.campId ?? fetched?.contentId;
+        if (fetched && key != null && !CAMPS.some((c) => (c.campId ?? c.contentId) === key)) {
+          CAMPS.push({ ...fetched, contentId: key });
         }
       })
-      .catch(() => { if (!cancelled) setCamp(CAMPS.find((c) => c.contentId === Number(contentId))); })
+      .catch(() => { if (!cancelled) setCamp(CAMPS.find((c) => (c.campId ?? c.contentId) === Number(contentId))); })
       .finally(() => { if (!cancelled) setCampLoading(false); });
     return () => { cancelled = true; };
   }, [contentId]);
@@ -97,7 +100,7 @@ export default function CampsiteDetailPage() {
 
   const onLoginRequest = () => navigate("/login");
   const onReserve = () =>
-    navigate(`/campsites/${camp.contentId}/reservation`, { state: { checkIn, checkOut, guestCount } });
+    navigate(`/campsites/${camp.campId ?? camp.contentId}/reservation`, { state: { checkIn, checkOut, guestCount } });
   const onReviewClick = (review: Review) => navigate(`/reviews/${review.id}`);
 
   // 신규 작성/수정을 하나의 폼으로 처리: editId가 있으면 해당 리뷰를 갱신, 없으면 새 리뷰를 목록 맨 앞에 추가
