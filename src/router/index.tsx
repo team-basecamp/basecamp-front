@@ -7,6 +7,7 @@
  */
 import { createBrowserRouter } from "react-router-dom";
 import Layout from "../components/layout/Layout";
+import RequireRole from "../components/common/RequireRole";
 
 import LoginPage from "../pages/auth/LoginPage";
 import KakaoCallbackPage from "../pages/auth/KakaoCallbackPage";
@@ -71,28 +72,38 @@ const router = createBrowserRouter([
     ],
   },
 
-  // 캠핑업체 화면
+  // 캠핑업체 화면 (CAMP_OWNER 전용 — RequireRole 이 하위 페이지 마운트를 막는다)
   {
     path: "/business",
     element: <Layout />,
     children: [
-      { path: "campsites", element: <CampsiteManagePage /> },
-      { path: "campsites/new", element: <CampsiteFormPage /> },
-      { path: "campsites/:contentId/edit", element: <CampsiteFormPage /> },
-      { path: "reservations", element: <ReservationManagePage /> },
-      { path: "reviews", element: <ReviewStatPage /> },
-      { path: "sales", element: <SalesStatPage /> },
+      {
+        element: <RequireRole allow={["CAMP_OWNER"]} />,
+        children: [
+          { path: "campsites", element: <CampsiteManagePage /> },
+          { path: "campsites/new", element: <CampsiteFormPage /> },
+          { path: "campsites/:contentId/edit", element: <CampsiteFormPage /> },
+          { path: "reservations", element: <ReservationManagePage /> },
+          { path: "reviews", element: <ReviewStatPage /> },
+          { path: "sales", element: <SalesStatPage /> },
+        ],
+      },
     ],
   },
 
-  // 관리자 화면
+  // 관리자 화면 (ADMIN 전용)
   {
     path: "/admin",
     element: <Layout />,
     children: [
-      { path: "members", element: <MemberManagePage /> },
-      { path: "blacklist", element: <BlacklistPage /> },
-      { path: "reports", element: <ReportListPage /> },
+      {
+        element: <RequireRole allow={["ADMIN"]} />,
+        children: [
+          { path: "members", element: <MemberManagePage /> },
+          { path: "blacklist", element: <BlacklistPage /> },
+          { path: "reports", element: <ReportListPage /> },
+        ],
+      },
     ],
   },
 ]);
