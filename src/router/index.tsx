@@ -7,6 +7,7 @@
  */
 import { createBrowserRouter } from "react-router-dom";
 import Layout from "../components/layout/Layout";
+import RequireRole from "../components/common/RequireRole";
 
 import LoginPage from "../pages/auth/LoginPage";
 import KakaoCallbackPage from "../pages/auth/KakaoCallbackPage";
@@ -28,6 +29,7 @@ import MyPage from "../pages/mypage/MyPage";
 import WishlistPage from "../pages/mypage/WishlistPage";
 import MyPostsPage from "../pages/mypage/MyPostsPage";
 import WithdrawPage from "../pages/mypage/WithdrawPage";
+import CampOwnerApplyPage from "../pages/mypage/CampOwnerApplyPage";
 import NotificationPage from "../pages/notification/NotificationPage";
 import CampsiteManagePage from "../pages/business/CampsiteManagePage";
 import CampsiteFormPage from "../pages/business/CampsiteFormPage";
@@ -35,6 +37,7 @@ import ReservationManagePage from "../pages/business/ReservationManagePage";
 import ReviewStatPage from "../pages/business/ReviewStatPage";
 import SalesStatPage from "../pages/business/SalesStatPage";
 import MemberManagePage from "../pages/admin/MemberManagePage";
+import CampOwnerApplicationsPage from "../pages/admin/CampOwnerApplicationsPage";
 import BlacklistPage from "../pages/admin/BlacklistPage";
 import ReportListPage from "../pages/admin/ReportListPage";
 
@@ -67,32 +70,44 @@ const router = createBrowserRouter([
       { path: "mypage/wishlist", element: <WishlistPage /> },
       { path: "mypage/posts", element: <MyPostsPage /> },
       { path: "mypage/withdraw", element: <WithdrawPage /> },
+      { path: "mypage/camp-owner", element: <CampOwnerApplyPage /> },
       { path: "notifications", element: <NotificationPage /> },
     ],
   },
 
-  // 캠핑업체 화면
+  // 캠핑업체 화면 (CAMP_OWNER 전용 — RequireRole 이 하위 페이지 마운트를 막는다)
   {
     path: "/business",
     element: <Layout />,
     children: [
-      { path: "campsites", element: <CampsiteManagePage /> },
-      { path: "campsites/new", element: <CampsiteFormPage /> },
-      { path: "campsites/:contentId/edit", element: <CampsiteFormPage /> },
-      { path: "reservations", element: <ReservationManagePage /> },
-      { path: "reviews", element: <ReviewStatPage /> },
-      { path: "sales", element: <SalesStatPage /> },
+      {
+        element: <RequireRole allow={["CAMP_OWNER"]} />,
+        children: [
+          { path: "campsites", element: <CampsiteManagePage /> },
+          { path: "campsites/new", element: <CampsiteFormPage /> },
+          { path: "campsites/:contentId/edit", element: <CampsiteFormPage /> },
+          { path: "reservations", element: <ReservationManagePage /> },
+          { path: "reviews", element: <ReviewStatPage /> },
+          { path: "sales", element: <SalesStatPage /> },
+        ],
+      },
     ],
   },
 
-  // 관리자 화면
+  // 관리자 화면 (ADMIN 전용)
   {
     path: "/admin",
     element: <Layout />,
     children: [
-      { path: "members", element: <MemberManagePage /> },
-      { path: "blacklist", element: <BlacklistPage /> },
-      { path: "reports", element: <ReportListPage /> },
+      {
+        element: <RequireRole allow={["ADMIN"]} />,
+        children: [
+          { path: "members", element: <MemberManagePage /> },
+          { path: "camp-owner", element: <CampOwnerApplicationsPage /> },
+          { path: "blacklist", element: <BlacklistPage /> },
+          { path: "reports", element: <ReportListPage /> },
+        ],
+      },
     ],
   },
 ]);
