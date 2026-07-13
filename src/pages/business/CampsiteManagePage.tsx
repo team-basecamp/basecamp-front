@@ -10,7 +10,6 @@ import type { Camp } from "../../types";
  * - 로그인한 회원이 등록한 캠핑장 전체를 GET /v1/camps/my로 조회해 카드 목록으로 보여줌
  * - "정보 수정"은 해당 캠핑장의 등록/수정 폼(CampsiteFormPage, /business/campsites/:contentId/edit)으로,
  *   "새 캠핑장 등록"은 같은 폼의 등록 모드(/business/campsites/new)로 이동
- *   (수정은 대응하는 백엔드 API가 아직 없어 실제로는 동작하지 않음)
  */
 export default function CampsiteManagePage() {
   const navigate = useNavigate();
