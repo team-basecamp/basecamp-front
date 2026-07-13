@@ -18,7 +18,8 @@ import type { Camp, Review } from "../../types";
  * 캠핑장 상세 페이지 (/campsites/:contentId)
  * - 캠핑장 소개/편의시설/날씨 미리보기/찜하기/리뷰(작성·수정·삭제)를 한 화면에서 처리
  * - 리뷰는 mock 데이터(data/reviews.ts)를 기반으로 컴포넌트 로컬 state로 관리 (새로고침 시 초기화됨)
- * - 찜 상태는 store/wishlistStore로 전역 관리되어 캠핑장 목록/찜 목록 화면과 동기화됨
+ * - 찜 상태는 store/wishlistStore로 전역 관리되어 캠핑장 목록/찜 목록 화면과 동기화됩니다
+ * 라저
  */
 export default function CampsiteDetailPage() {
   const { contentId } = useParams<{ contentId: string }>();
