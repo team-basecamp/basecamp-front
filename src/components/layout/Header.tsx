@@ -3,11 +3,12 @@
  * - 로그인 상태(authStore)에 따라 로그인 버튼 / 프로필 드롭다운을 다르게 보여줌
  * - 알림 뱃지 숫자는 notificationStore의 unreadCount를 그대로 구독해서 표시
  */
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Bell, LogOut, Menu, X, User, ChevronDown } from "lucide-react";
 import useLogout from "../../hooks/useLogout";
-import useAuthStore, { type SocialProvider } from "../../store/authStore";
+import useRole from "../../hooks/useRole";
+import useAuthStore, { type MemberRole, type SocialProvider } from "../../store/authStore";
 import useNotificationStore from "../../store/notificationStore";
 import "./Header.css";
 
@@ -79,16 +80,44 @@ const NAV_ITEMS: { label: string; to: string }[] = [
   { label: "커뮤니티", to: "/posts" },
 ];
 
+interface ProfileMenuItem {
+  label: string;
+  to: string;
+  icon: ReactNode;
+}
+
+const MYPAGE_ITEM: ProfileMenuItem = { label: "마이페이지", to: "/mypage", icon: <User size={14} /> };
+
+/**
+ * 권한별 프로필 메뉴. 각 역할은 자기 화면 그룹(/business, /admin)만 보고,
+ * 마이페이지는 모두가 공유한다.
+ */
+const ROLE_MENU_ITEMS: Record<MemberRole, ProfileMenuItem[]> = {
+  CUSTOMER: [MYPAGE_ITEM],
+  CAMP_OWNER: [
+    MYPAGE_ITEM,
+    { label: "캠핑업체 대시보드", to: "/business/campsites", icon: <BasecampLogo size={14} /> },
+  ],
+  ADMIN: [
+    MYPAGE_ITEM,
+    { label: "관리자 페이지", to: "/admin/members", icon: <BasecampLogo size={14} /> },
+  ],
+};
+
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
+  const role = useRole();
   const logout = useLogout();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   const isActive = (to: string) => location.pathname.startsWith(to);
+
+  // 토큰에서 권한을 못 읽으면(만료 직전 재발급 중, 손상된 토큰 등) 공용 메뉴만 남긴다.
+  const profileMenuItems = role ? ROLE_MENU_ITEMS[role] : [MYPAGE_ITEM];
 
   const closeMenus = () => {
     setMobileOpen(false);
@@ -161,15 +190,11 @@ export default function Header() {
 
                 {profileOpen && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-50">
-                    <Link to="/mypage" onClick={closeMenus} className="w-full flex items-center gap-2 px-4 py-3 text-sm hover:bg-muted transition-colors">
-                      <User size={14} /> 마이페이지
-                    </Link>
-                    <Link to="/business/campsites" onClick={closeMenus} className="w-full flex items-center gap-2 px-4 py-3 text-sm hover:bg-muted transition-colors">
-                      <BasecampLogo size={14} /> 캠핑업체 대시보드
-                    </Link>
-                    <Link to="/admin/members" onClick={closeMenus} className="w-full flex items-center gap-2 px-4 py-3 text-sm hover:bg-muted transition-colors">
-                      <BasecampLogo size={14} /> 관리자 페이지
-                    </Link>
+                    {profileMenuItems.map(({ label, to, icon }) => (
+                      <Link key={to} to={to} onClick={closeMenus} className="w-full flex items-center gap-2 px-4 py-3 text-sm hover:bg-muted transition-colors">
+                        {icon} {label}
+                      </Link>
+                    ))}
                     <div className="border-t border-border" />
                     <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-3 text-sm text-destructive hover:bg-destructive/5 transition-colors">
                       <LogOut size={14} /> 로그아웃
@@ -203,13 +228,12 @@ export default function Header() {
               {label}
             </Link>
           ))}
-          {user && (
-            <>
-              <Link to="/mypage" onClick={closeMenus} className="w-full text-left block px-3 py-2.5 rounded-lg text-sm text-foreground/60 hover:text-foreground hover:bg-muted transition-all">마이페이지</Link>
-              <Link to="/business/campsites" onClick={closeMenus} className="w-full text-left block px-3 py-2.5 rounded-lg text-sm text-foreground/60 hover:text-foreground hover:bg-muted transition-all">캠핑업체 대시보드</Link>
-              <Link to="/admin/members" onClick={closeMenus} className="w-full text-left block px-3 py-2.5 rounded-lg text-sm text-foreground/60 hover:text-foreground hover:bg-muted transition-all">관리자 페이지</Link>
-            </>
-          )}
+          {user &&
+            profileMenuItems.map(({ label, to }) => (
+              <Link key={to} to={to} onClick={closeMenus} className="w-full text-left block px-3 py-2.5 rounded-lg text-sm text-foreground/60 hover:text-foreground hover:bg-muted transition-all">
+                {label}
+              </Link>
+            ))}
         </div>
       )}
     </header>
