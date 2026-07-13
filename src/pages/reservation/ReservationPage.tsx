@@ -1,26 +1,47 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Minus, Plus } from "lucide-react";
-import { CAMPS } from "../../data/camps";
+import { getCampsiteDetail } from "../../api/campsite";
+import { createReservation } from "../../api/reservation";
+import type { Camp } from "../../types";
 
 interface ReservationLocationState {
   checkIn?: string;
   checkOut?: string;
   guestCount?: number;
+  camp?: Camp;
 }
 
-/**
- * 예약 정보 입력 페이지 (/campsites/:campsiteId/reservation)
- * - 예약자 정보/체크인·체크아웃/인원/요청사항을 입력받는 예약 플로우의 1단계(예약 정보 -> 결제)
- * - 입력값은 서버 저장 없이 navigate의 state로 결제 페이지(PaymentPage)에 그대로 전달됨
- * - 캠핑장 상세 페이지에서 미리 선택한 체크인/체크아웃/예약 명수가 있으면 navigate state로 넘어와 초기값으로 반영됨
- */
+/** 백엔드 정규식과 동일 (하이픈 필수) */
+const PHONE_REGEX = /^01(?:0|1|[6-9])-\d{3,4}-\d{4}$/;
+
+/** 숫자만 남기고 010-1234-5678 형태로 하이픈을 넣는다 */
+const formatPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length < 4) return digits;
+  if (digits.length < 8) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  const middle = digits.length === 11 ? 4 : 3;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 3 + middle)}-${digits.slice(3 + middle)}`;
+};
+
 export default function ReservationPage() {
   const { campsiteId } = useParams<{ campsiteId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const camp = CAMPS.find((c) => c.contentId === Number(campsiteId));
   const prefill = location.state as ReservationLocationState | null;
+
+  // 상세 페이지에서 camp를 넘겨줬으면 재조회 생략, 아니면 API 조회 (새로고침 대응)
+  const [camp, setCamp] = useState<Camp | undefined>(prefill?.camp);
+  const [campLoading, setCampLoading] = useState(!prefill?.camp);
+
+  useEffect(() => {
+    if (prefill?.camp) return;
+    let cancelled = false;
+    getCampsiteDetail(Number(campsiteId))
+      .then((res: any) => { if (!cancelled) setCamp(res.data); })
+      .finally(() => { if (!cancelled) setCampLoading(false); });
+    return () => { cancelled = true; };
+  }, [campsiteId]);
 
   const [form, setForm] = useState({
     name: "", phone: "",
@@ -30,8 +51,17 @@ export default function ReservationPage() {
     request: "",
   });
 
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
   const updateForm = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  if (campLoading) {
+    return <div className="max-w-lg mx-auto px-4 py-20 text-center text-muted-foreground">불러오는 중...</div>;
+  }
 
   if (!camp) {
     return (
@@ -44,8 +74,56 @@ export default function ReservationPage() {
     );
   }
 
-  const goToPayment = () => {
-    navigate("/payment", { state: { camp, reservation: form } });
+  // 총액 계산 (박 수 × 1박 요금)
+  const nights = form.checkin && form.checkout
+    ? Math.max(0, Math.round((new Date(form.checkout).getTime() - new Date(form.checkin).getTime()) / 86_400_000))
+    : 0;
+  //const totalPrice = (camp.price ?? 0) * nights;
+  const totalPrice = 10000 * nights; //TODO: temp value
+
+  const validate = (): string | null => {
+    if (!form.name.trim()) return "예약자 이름을 입력해주세요";
+    if (!form.phone.trim()) return "연락처를 입력해주세요";
+    if (!form.checkin || !form.checkout) return "체크인·체크아웃 날짜를 선택해주세요";
+    if (nights <= 0) return "체크아웃 날짜는 체크인 날짜보다 이후여야 합니다";
+    return null;
+  };
+
+  const goToPayment = async () => {
+    const message = validate();
+    if (message) { setError(message); return; }
+
+    setError(null);
+    setSubmitting(true);
+    try {
+      const reservation = await createReservation({
+        campId: (camp as any).campId,
+        checkInDate: form.checkin,
+        checkOutDate: form.checkout,
+        guestCount: form.people,
+        totalPrice,
+        customerName: form.name.trim(),
+        customerPhone: form.phone.trim(),
+        specialRequest: form.request.trim() || undefined,
+      });
+
+      // 예약은 PENDING_PAYMENT 상태로 생성됨 → 결제 페이지로 reservationId 전달
+      navigate("/payment", {
+        state: { camp, reservation: form, reservationId: reservation.reservationId, totalPrice },
+      });
+    } catch (e: any) {
+        const code = e?.response?.data?.code;
+      if (code === "DUPLICATE_RESERVATION" || e?.response?.status === 409) {
+        setError("해당 기간에 이미 예약이 있습니다");
+      } else if (e?.response?.status === 401) {
+        navigate("/login", { state: { from: location.pathname } });
+        return;
+      } else {
+        setError(e?.response?.data?.message ?? "예약에 실패했습니다. 잠시 후 다시 시도해주세요");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -77,21 +155,29 @@ export default function ReservationPage() {
           </div>
         </div>
 
-        {[
-          { label: "예약자 이름", key: "name", type: "text", placeholder: "홍길동" },
-          { label: "연락처", key: "phone", type: "tel", placeholder: "010-0000-0000" },
-        ].map((f) => (
-          <div key={f.key}>
-            <label className="text-sm font-medium mb-1.5 block">{f.label}</label>
-            <input
-              type={f.type}
-              placeholder={f.placeholder}
-              value={(form as any)[f.key]}
-              onChange={updateForm(f.key)}
-              className="w-full bg-muted rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
-            />
-          </div>
-        ))}
+        <div>
+          <label className="text-sm font-medium mb-1.5 block">예약자 이름</label>
+          <input
+            type="text"
+            placeholder="홍길동"
+            value={form.name}
+            onChange={updateForm("name")}
+            className="w-full bg-muted rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium mb-1.5 block">연락처</label>
+          <input
+            type="tel"
+            inputMode="numeric"
+            placeholder="010-0000-0000"
+            value={form.phone}
+            onChange={(e) => setForm((f) => ({ ...f, phone: formatPhone(e.target.value) }))}
+            maxLength={13}
+            className="w-full bg-muted rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+          />
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           {[{ label: "체크인", key: "checkin" }, { label: "체크아웃", key: "checkout" }].map((f) => (
@@ -99,6 +185,7 @@ export default function ReservationPage() {
               <label className="text-sm font-medium mb-1.5 block">{f.label}</label>
               <input
                 type="date"
+                min={tomorrow}
                 value={(form as any)[f.key]}
                 onChange={updateForm(f.key)}
                 className="w-full bg-muted rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/50"
@@ -140,8 +227,26 @@ export default function ReservationPage() {
           />
         </div>
 
-        <button onClick={goToPayment} className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/80 transition-all">
-          다음 — 결제 정보
+        {/* 총액 */}
+        {nights > 0 && (
+          <div className="bg-muted rounded-2xl px-4 py-3 flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">{nights}박 · {form.people}명</span>
+            <span className="font-bold text-lg" style={{ fontFamily: "'DM Mono', monospace" }}>
+              ₩{totalPrice.toLocaleString()}
+            </span>
+          </div>
+        )}
+
+        {error && (
+          <p className="text-sm text-destructive bg-destructive/10 rounded-xl px-4 py-3">{error}</p>
+        )}
+
+        <button
+          onClick={goToPayment}
+          disabled={submitting}
+          className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitting ? "예약 생성 중..." : "다음 — 결제 정보"}
         </button>
       </div>
     </div>
