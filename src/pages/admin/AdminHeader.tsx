@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, ShieldOff, Flag } from "lucide-react";
+import { Users, ShieldOff, Flag, Tent } from "lucide-react";
 import { ADMIN_REPORTS } from "../../data/admin";
 
 /**
@@ -9,10 +9,11 @@ import { ADMIN_REPORTS } from "../../data/admin";
  *   /admin/* 하위 여러 페이지에서 공통으로 재사용되는 컴포넌트
  * - active prop으로 현재 탭을 표시하고, 신고 탭에는 처리 대기중인 건수를 배지로 표시
  */
-export type AdminTab = "members" | "blacklist" | "reports";
+export type AdminTab = "members" | "campOwner" | "blacklist" | "reports";
 
 const TAB_ROUTES: Record<AdminTab, string> = {
   members: "/admin/members",
+  campOwner: "/admin/camp-owner",
   blacklist: "/admin/blacklist",
   reports: "/admin/reports",
 };
@@ -23,6 +24,7 @@ export default function AdminHeader({ active }: { active: AdminTab }) {
 
   const TABS: { key: AdminTab; label: string; icon: ReactNode; badge?: number }[] = [
     { key: "members", label: "회원 관리", icon: <Users size={15} /> },
+    { key: "campOwner", label: "업체 승격", icon: <Tent size={15} /> },
     { key: "blacklist", label: "블랙리스트", icon: <ShieldOff size={15} /> },
     { key: "reports", label: "신고 내역", icon: <Flag size={15} />, badge: pendingReports },
   ];

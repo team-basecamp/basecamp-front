@@ -5,7 +5,7 @@
  */
 import { useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Bell, LogOut, Menu, X, User, ChevronDown } from "lucide-react";
+import { Bell, LogOut, Menu, X, User, ChevronDown, Tent } from "lucide-react";
 import useLogout from "../../hooks/useLogout";
 import useRole from "../../hooks/useRole";
 import useAuthStore, { type MemberRole, type SocialProvider } from "../../store/authStore";
@@ -93,7 +93,10 @@ const MYPAGE_ITEM: ProfileMenuItem = { label: "마이페이지", to: "/mypage", 
  * 마이페이지는 모두가 공유한다.
  */
 const ROLE_MENU_ITEMS: Record<MemberRole, ProfileMenuItem[]> = {
-  CUSTOMER: [MYPAGE_ITEM],
+  CUSTOMER: [
+    MYPAGE_ITEM,
+    { label: "캠핑업체 전환 신청", to: "/mypage/camp-owner", icon: <Tent size={14} /> },
+  ],
   CAMP_OWNER: [
     MYPAGE_ITEM,
     { label: "캠핑업체 대시보드", to: "/business/campsites", icon: <BasecampLogo size={14} /> },
