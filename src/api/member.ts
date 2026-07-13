@@ -1,7 +1,6 @@
 import instance from "./instance";
 import type { Post } from "../types";
 import type { WishCamp } from "../types";
-import type { MemberRole } from "../store/authStore";
 
 /**
  * 회원(member) 관련 API 함수 모음 - 내 프로필/위시리스트/작성글/알림 조회.
@@ -18,8 +17,6 @@ export interface MyProfile {
   nickname: string;
   profileImageUrl: string | null;
   provider: string;
-  role: MemberRole;
-  status: "ACTIVE" | "BLACKLISTED" | "WITHDRAWN";
   createdAt: string;
 }
 
