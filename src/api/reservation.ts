@@ -19,7 +19,7 @@ export type ReservationStatus =
 
 /** ReservationResponse.java 기준 — 실제 record 필드 확인 후 보정 */
 export interface ReservationResponse {
-  reservationId: number;
+  id: number;               // reservationId 아님
   userId: number;
   campId: number;
   checkInDate: string;      // "2026-07-20"

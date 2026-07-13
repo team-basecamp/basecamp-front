@@ -1,31 +1,44 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronRight, CheckCircle } from "lucide-react";
-import useReservationStore from "../../store/reservationStore";
+import {
+  createPayment,
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_LABELS,
+  type PaymentMethod,
+} from "../../api/payment";
 import type { Camp } from "../../types";
 
 interface PaymentLocationState {
   camp: Camp;
   reservation?: { name: string; phone: string; checkin: string; checkout: string; people: number; request: string };
   reservationId?: number;
+  totalPrice?: number;
 }
 
 /**
  * 결제 페이지 (/payment)
- * - 예약 플로우의 2단계(결제 수단 선택/약관 동의) 및 3단계(결제 완료 안내)를 한 컴포넌트에서 step으로 분기 처리
- * - ReservationPage에서 navigate state로 전달된 camp/reservation 정보가 없으면 접근 불가 안내를 보여줌
- * - reservationId가 있는 경우(기존 예약 결제) markPaid로 store 상태를 결제완료로 갱신
+ * - 예약 플로우 2단계(결제 수단 선택/약관 동의) → 3단계(완료 안내)
+ * - ReservationPage 에서 createReservation 으로 만든 예약(PENDING_PAYMENT)을 결제한다.
+ * - 결제 금액은 서버가 예약의 totalPrice 로 직접 계산한다. 화면 금액은 표시용일 뿐이다.
  */
 export default function PaymentPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as PaymentLocationState | null;
-  const markPaid = useReservationStore((s) => s.markPaid);
 
-  const [step, setStep] = useState<2 | 3>(2); // 2: 결제 수단/약관 동의, 3: 결제 완료 안내
+  const [step, setStep] = useState<2 | 3>(2);
   const [agreed, setAgreed] = useState(false);
+  const [method, setMethod] = useState<PaymentMethod>("CARD");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!state?.camp) {
+  // 예약 생성 없이 직접 들어온 경우 결제할 대상이 없다
+  if (!state?.camp || !state.reservationId) {
+    console.log("state 전체:", JSON.stringify(state, null, 2));
+console.log("camp:", state?.camp);
+console.log("reservationId:", state?.reservationId);
+console.log("totalPrice:", state?.totalPrice);
     return (
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
         <p className="text-muted-foreground mb-6">예약 정보가 없습니다. 캠핑장을 먼저 선택해주세요.</p>
@@ -36,8 +49,28 @@ export default function PaymentPage() {
     );
   }
 
-  const { camp } = state;
-  const price = camp.price ?? 0;
+  const { camp, reservationId } = state;
+  const totalPrice = state.totalPrice ?? 0;
+
+  const handlePay = async () => {
+    if (!agreed || submitting) return;
+
+    setError(null);
+    setSubmitting(true);
+    try {
+      // amount 는 보내지 않는다. 서버가 예약의 totalPrice 로 결제한다.
+      await createPayment({ reservationId, paymentMethod: method });
+      setStep(3);
+    } catch (e: any) {
+      console.error("결제 실패:", e);
+      setError(
+        e?.response?.data?.message ??
+        "결제에 실패했습니다. 결제 대기 시간이 지났다면 예약을 다시 진행해주세요."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (step === 3) {
     return (
@@ -45,14 +78,19 @@ export default function PaymentPage() {
         <div className="w-20 h-20 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center mx-auto mb-6">
           <CheckCircle size={40} className="text-primary" />
         </div>
-        <h2 className="text-3xl font-bold mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>예약 완료!</h2>
+        <h2 className="text-3xl font-bold mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>결제 완료!</h2>
         <p className="text-muted-foreground mb-2">{camp.facltNm}</p>
         <p className="text-muted-foreground text-sm mb-8">
-          예약 확인 메일이 발송되었습니다. 멋진 캠핑 되세요! 🏕️
+          캠핑장의 예약 승인을 기다리는 중입니다. 승인되면 알려드릴게요 🏕️
         </p>
-        <button onClick={() => navigate("/")} className="px-8 py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/80 transition-all">
-          홈으로 돌아가기
-        </button>
+        <div className="flex gap-2 justify-center">
+          <button onClick={() => navigate("/reservations")} className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/80 transition-all">
+            예약 내역 보기
+          </button>
+          <button onClick={() => navigate("/")} className="px-6 py-3 rounded-xl border border-border text-muted-foreground hover:text-foreground transition-all">
+            홈으로
+          </button>
+        </div>
       </div>
     );
   }
@@ -66,16 +104,12 @@ export default function PaymentPage() {
       {/* Step indicator */}
       <div className="flex items-center gap-3 mb-8">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all bg-primary text-primary-foreground">
-            1
-          </div>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-primary text-primary-foreground">1</div>
           <span className="text-sm text-foreground font-medium">예약 정보</span>
           <ChevronRight size={14} className="text-muted-foreground" />
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all bg-primary text-primary-foreground">
-            2
-          </div>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-primary text-primary-foreground">2</div>
           <span className="text-sm text-foreground font-medium">결제</span>
         </div>
       </div>
@@ -84,10 +118,17 @@ export default function PaymentPage() {
         {/* Payment methods */}
         <div className="bg-card border border-border rounded-2xl p-5">
           <h3 className="font-bold mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>결제 수단</h3>
-          {["신용카드 / 체크카드", "카카오페이", "네이버페이", "토스페이"].map((method, i) => (
-            <label key={method} className="flex items-center gap-3 py-3 cursor-pointer border-b border-border last:border-0">
-              <input type="radio" name="payment" defaultChecked={i === 0} className="accent-primary" />
-              <span className="text-sm">{method}</span>
+          {PAYMENT_METHODS.map((m) => (
+            <label key={m} className="flex items-center gap-3 py-3 cursor-pointer border-b border-border last:border-0">
+              <input
+                type="radio"
+                name="payment"
+                value={m}
+                checked={method === m}
+                onChange={() => setMethod(m)}
+                className="accent-primary"
+              />
+              <span className="text-sm">{PAYMENT_METHOD_LABELS[m]}</span>
             </label>
           ))}
         </div>
@@ -95,21 +136,11 @@ export default function PaymentPage() {
         {/* Price summary */}
         <div className="bg-card border border-border rounded-2xl p-5">
           <h3 className="font-bold mb-3">결제 금액</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">캠핑 요금</span>
-              <span style={{ fontFamily: "'DM Mono', monospace" }}>₩{price.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">서비스 수수료</span>
-              <span style={{ fontFamily: "'DM Mono', monospace" }}>₩2,000</span>
-            </div>
-            <div className="flex justify-between font-bold border-t border-border pt-2 mt-2">
-              <span>총 결제금액</span>
-              <span className="text-primary" style={{ fontFamily: "'DM Mono', monospace" }}>
-                ₩{(price + 2000).toLocaleString()}
-              </span>
-            </div>
+          <div className="flex justify-between font-bold">
+            <span>총 결제금액</span>
+            <span className="text-primary text-lg" style={{ fontFamily: "'DM Mono', monospace" }}>
+              ₩{totalPrice.toLocaleString()}
+            </span>
           </div>
         </div>
 
@@ -122,16 +153,16 @@ export default function PaymentPage() {
           </span>
         </label>
 
+        {error && (
+          <p className="text-sm text-destructive bg-destructive/10 rounded-xl px-4 py-3">{error}</p>
+        )}
+
         <button
-          onClick={() => {
-            if (!agreed) return;
-            if (state.reservationId) markPaid(state.reservationId);
-            setStep(3);
-          }}
-          disabled={!agreed}
+          onClick={handlePay}
+          disabled={!agreed || submitting}
           className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/80 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          결제하기
+          {submitting ? "결제 처리 중..." : `₩${totalPrice.toLocaleString()} 결제하기`}
         </button>
       </div>
     </div>

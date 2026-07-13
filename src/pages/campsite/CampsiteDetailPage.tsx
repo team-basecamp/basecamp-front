@@ -14,6 +14,17 @@ import useAuthStore from "../../store/authStore";
 import useWishlistStore from "../../store/wishlistStore";
 import type { Camp, Review } from "../../types";
 
+/** Date → yyyy-MM-dd (로컬 시간 기준) */
+const toDateStr = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** yyyy-MM-dd 문자열에 하루를 더한다 */
+const addDay = (dateStr: string) => {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  return toDateStr(d);
+};
+
 /**
  * 캠핑장 상세 페이지 (/campsites/:contentId)
  * - 캠핑장 소개/편의시설/날씨 미리보기/찜하기/리뷰(작성·수정·삭제)를 한 화면에서 처리
@@ -94,12 +105,9 @@ export default function CampsiteDetailPage() {
 
   const weatherDays = getWeatherPreview(camp.contentId, checkIn, checkOut);
 
-  // 백엔드 @Future 검증 때문에 오늘은 선택 불가. 내일부터
-  const tomorrow = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  })();
+  // 백엔드 @Future 검증 때문에 오늘은 선택 불가
+  const tomorrow = addDay(toDateStr(new Date()));
+  const minCheckOut = checkIn ? addDay(checkIn) : addDay(tomorrow);
 
   const avgRating = campReviews.length
     ? (campReviews.reduce((s, r) => s + r.rating, 0) / campReviews.length).toFixed(1)
@@ -409,6 +417,7 @@ export default function CampsiteDetailPage() {
                 <Calendar size={14} className="text-primary" />
                 <input
                   type="date"
+                  min={minCheckOut}
                   value={checkOut}
                   onChange={(e) => setCheckOut(e.target.value)}
                   className="flex-1 bg-transparent text-sm outline-none"
