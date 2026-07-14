@@ -5,9 +5,14 @@ import type { Camp, CampRegistrationRequest, WeatherDay } from "../types";
  * 캠핑장(campsite) 관련 API 함수 모음 - 목록/검색/상세/인기 캠핑장, 날씨, 찜하기,
  * 그리고 캠핑업체 전용 CRUD.
  * - createCampsite(POST /v1/camps/register), getMyCampsites(GET /v1/camps/my),
+<<<<<<< HEAD
  *   deleteCampsite(DELETE /v1/camps/{campId})는 실제 백엔드와 연동됨.
  * - updateCampsite는 대응하는 백엔드 엔드포인트가 PATCH /v1/camps/{campId}로 존재하지만
  *   아직 이 함수에서 그 경로로 연동되지 않음.
+=======
+ *   updateCampsite(PATCH /v1/camps/{campId})는 실제 백엔드와 연동됨.
+ * - deleteCampsite는 대응하는 백엔드 엔드포인트가 아직 없음.
+>>>>>>> origin/dev
  */
 export const getMapData = (mapX: number, mapY: number) =>
   instance.get("/v1/map", { params: { mapX, mapY } });
@@ -20,6 +25,14 @@ export interface GetCampsitesParams {
   sort?: "recommended" | "rating" | "reviewCount" | "priceAsc" | "recent";
   pageNo?: number;
   numOfRows?: number;
+}
+
+/** 캠핑장 목록 공통 envelope (CampListResponseDto) */
+export interface CampListEnvelope {
+  resultCode: string;
+  resultMsg: string;
+  data: Camp[];
+  totalCount: number;
 }
 
 // 키워드/지역/유형/최대금액 필터 + 정렬 + 페이징을 조합한 캠핑장 검색(=목록 조회)
@@ -54,11 +67,11 @@ export const createCampsite = (payload: CampRegistrationRequest) =>
   instance.post<{ resultCode: string; resultMsg: string; data: Camp }>("/v1/camps/register", payload);
 
 export const getMyCampsites = () =>
-  instance.get<{ resultCode: string; resultMsg: string; data: Camp[]; totalCount: number }>("/v1/camps/my");
+  instance.get<CampListEnvelope>("/v1/camps/my") as unknown as Promise<CampListEnvelope>;
 
-// 실제로는 수정(UPDATE) 처리 (REST 컨벤션상 POST로 구현됨)
-export const updateCampsite = (contentId: number, payload: Partial<Camp>) =>
-  instance.post(`/v1/camps/${contentId}/update`, payload);
+// 캠핑장 정보 수정 (PATCH /v1/camps/{campId}) - 실제 백엔드와 연동됨
+export const updateCampsite = (campId: number, payload: Partial<Camp>) =>
+  instance.patch(`/v1/camps/${campId}`, payload);
 
 // 캠핑장 삭제 (DELETE /v1/camps/{campId})
 export const deleteCampsite = (campId: number) =>

@@ -12,7 +12,8 @@ import type { Camp } from "../../types";
  * - "정보 수정"은 해당 캠핑장의 등록/수정 폼(CampsiteFormPage, /business/campsites/:contentId/edit)으로,
  *   "새 캠핑장 등록"은 같은 폼의 등록 모드(/business/campsites/new)로 이동
  *   (수정은 대응하는 백엔드 API가 아직 없어 실제로는 동작하지 않음)
- *  - "삭제"는 DELETE /v1/camps/{campId}로 연동됨 (softDelete, 소유자 본인만 가능)
+ *  *  - "삭제"는 DELETE /v1/camps/{campId}로 연동됨 (softDelete, 소유자 본인만 가능)
+
  */
 export default function CampsiteManagePage() {
   const navigate = useNavigate();
