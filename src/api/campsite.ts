@@ -4,8 +4,10 @@ import type { Camp, CampRegistrationRequest, WeatherDay } from "../types";
 /**
  * 캠핑장(campsite) 관련 API 함수 모음 - 목록/검색/상세/인기 캠핑장, 날씨, 찜하기,
  * 그리고 캠핑업체 전용 CRUD.
- * - createCampsite(POST /v1/camps/register), getMyCampsites(GET /v1/camps/my)는 실제 백엔드와 연동됨.
- * - updateCampsite/deleteCampsite는 대응하는 백엔드 엔드포인트가 아직 없음.
+ * - createCampsite(POST /v1/camps/register), getMyCampsites(GET /v1/camps/my),
+ *   deleteCampsite(DELETE /v1/camps/{campId})는 실제 백엔드와 연동됨.
+ * - updateCampsite는 대응하는 백엔드 엔드포인트가 PATCH /v1/camps/{campId}로 존재하지만
+ *   아직 이 함수에서 그 경로로 연동되지 않음.
  */
 export const getMapData = (mapX: number, mapY: number) =>
   instance.get("/v1/map", { params: { mapX, mapY } });
@@ -58,6 +60,6 @@ export const getMyCampsites = () =>
 export const updateCampsite = (contentId: number, payload: Partial<Camp>) =>
   instance.post(`/v1/camps/${contentId}/update`, payload);
 
-// 실제로는 삭제(DELETE) 처리 (REST 컨벤션상 POST로 구현됨)
-export const deleteCampsite = (contentId: number) =>
-  instance.post(`/v1/camps/${contentId}/delete`, { contentId });
+// 캠핑장 삭제 (DELETE /v1/camps/{campId})
+export const deleteCampsite = (campId: number) =>
+  instance.delete(`/v1/camps/${campId}`);
