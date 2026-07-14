@@ -92,8 +92,8 @@ export default function ReservationPage() {
   const nights = form.checkin && form.checkout
     ? Math.max(0, Math.round((new Date(form.checkout).getTime() - new Date(form.checkin).getTime()) / 86_400_000))
     : 0;
-  //const totalPrice = (camp.price ?? 0) * nights;
-  const totalPrice = 10000 * nights; //TODO: temp value
+  const totalPrice = (camp.price ?? 0) * nights;
+  
 
   const validate = (): string | null => {
     if (!form.name.trim()) return "예약자 이름을 입력해주세요";
