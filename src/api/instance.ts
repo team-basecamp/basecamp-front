@@ -1,5 +1,6 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import useAuthStore from "../store/authStore";
+import type { AxiosRequestConfig } from "axios";
 
 /**
  * 백엔드(Spring Boot, localhost:8080)와 통신하기 위한 공용 axios 인스턴스.
@@ -137,4 +138,18 @@ instance.interceptors.response.use(
   }
 );
 
+/**
+ * 응답 인터셉터가 res.data 를 언래핑하므로, 실제 반환값은 AxiosResponse 가 아니라 응답 본문이다.
+ * 기본 AxiosInstance 타입은 이를 반영하지 못해 `const { data } = await api.post(...)` 같은
+ * 코드가 컴파일은 통과하고 런타임에 undefined 로 터진다. 타입을 실제 동작에 맞춰 좁힌다.
+ */
+interface UnwrappedAxios {
+  get<T>(url: string, config?: AxiosRequestConfig): Promise<T>;
+  post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>;
+  put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>;
+  patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>;
+  delete<T>(url: string, config?: AxiosRequestConfig): Promise<T>;
+}
+
 export default instance;
+//export default instance as unknown as UnwrappedAxios;
