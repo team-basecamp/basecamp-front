@@ -1,86 +1,114 @@
 /**
- * 예약 1건을 보여주는 카드 (마이페이지/예약내역 등에서 ReservationList가 목록으로 렌더링)
- * - 예약 상태(status)에 따라 취소/결제하기/리뷰작성 버튼을 다르게 노출
- * - 실제 취소/결제 처리는 부모(ReservationList)에서 내려주는 콜백이 담당하며,
- *   이 컴포넌트 자체는 reservationStore를 직접 사용하지 않음 (상태는 부모가 관리)
+ * 예약 1건 카드 (ReservationList가 목록으로 렌더링)
+ * - 서버 ReservationResponse 를 그대로 받는다.
+ * - 결제 여부는 별도 필드가 아니라 status 로 판정한다: PENDING_PAYMENT = 미결제, 그 외 = 결제 완료
+ * - "이용 완료" 상태는 서버에 없다. RESERVED 이면서 체크아웃 날짜가 지났으면 완료로 본다.
  */
 import type { ReactNode } from "react";
-import { Star } from "lucide-react";
-import type { Reservation, ReservationStatus } from "../../types";
-import { CheckCircle, Clock, XCircle, AlertCircle } from "lucide-react";
+import { Star, CheckCircle, Clock, XCircle, AlertCircle, CreditCard } from "lucide-react";
+import type { ReservationResponse, ReservationStatus } from "../../api/reservation";
 
 const STATUS_CONFIG: Record<ReservationStatus, { label: string; icon: ReactNode; color: string }> = {
-  PENDING:   { label: "승인 대기", icon: <Clock size={12} />,        color: "text-accent bg-accent/10" },
-  RESERVED:  { label: "예약 확정", icon: <CheckCircle size={12} />,  color: "text-primary bg-primary/10" },
-  COMPLETED: { label: "이용 완료", icon: <CheckCircle size={12} />,  color: "text-muted-foreground bg-muted" },
-  CANCELLED: { label: "예약 취소", icon: <XCircle size={12} />,      color: "text-destructive bg-destructive/10" },
-  REJECTED:  { label: "예약 거절", icon: <AlertCircle size={12} />,  color: "text-destructive bg-destructive/10" },
+  PENDING_PAYMENT: { label: "결제 대기", icon: <CreditCard size={12} />,  color: "text-accent bg-accent/10" },
+  PENDING:         { label: "승인 대기", icon: <Clock size={12} />,       color: "text-accent bg-accent/10" },
+  RESERVED:        { label: "예약 확정", icon: <CheckCircle size={12} />, color: "text-primary bg-primary/10" },
+  CANCELLED:       { label: "예약 취소", icon: <XCircle size={12} />,     color: "text-destructive bg-destructive/10" },
+  REJECTED:        { label: "예약 거절", icon: <AlertCircle size={12} />, color: "text-destructive bg-destructive/10" },
 };
 
 interface ReservationCardProps {
-  reservation: Reservation;
+  reservation: ReservationResponse;
+  processing?: boolean;
   onCampClick: (campId: number) => void;
   onCancel?: (reservationId: number) => void;
   onPay?: (reservationId: number) => void;
   onReview?: (campId: number) => void;
 }
 
-export default function ReservationCard({ reservation, onCampClick, onCancel, onPay, onReview }: ReservationCardProps) {
-  const cfg = STATUS_CONFIG[reservation.status];
-  const nights = Math.round((new Date(reservation.checkOutDate).getTime() - new Date(reservation.checkInDate).getTime()) / 86400000);
+export default function ReservationCard({
+  reservation: res,
+  processing = false,
+  onCampClick,
+  onCancel,
+  onPay,
+  onReview,
+}: ReservationCardProps) {
+  const cfg = STATUS_CONFIG[res.status];
+  const nights = Math.round(
+    (new Date(res.checkOutDate).getTime() - new Date(res.checkInDate).getTime()) / 86400000
+  );
+
+  const isPaid = res.status !== "PENDING_PAYMENT";
+  const isCancelable = res.status !== "CANCELLED" && res.status !== "REJECTED";
+  // 서버에 COMPLETED 상태가 없어, 확정된 예약의 체크아웃이 지났으면 이용 완료로 본다
+  const isCompleted = res.status === "RESERVED" && new Date(res.checkOutDate) < new Date();
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5">
       <div className="flex gap-4">
-        <img
-          src={reservation.campImage}
-          alt={reservation.campName}
-          className="w-20 h-16 rounded-xl object-cover flex-shrink-0 bg-muted"
-        />
+        {/* TODO: ReservationResponse 에 campImage 가 없다. 백엔드 DTO 에 추가되면 img 로 교체 */}
+        <div className="w-20 h-16 rounded-xl bg-muted flex-shrink-0 flex items-center justify-center text-2xl">
+          🏕️
+        </div>
+
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1">
-            <button onClick={() => onCampClick(reservation.campId)} className="font-semibold text-sm hover:text-primary transition-colors line-clamp-1">
-              {reservation.campName}
+            {/* TODO: ReservationResponse 에 campName 이 없다. 추가되면 이름으로 교체 */}
+            <button
+              onClick={() => onCampClick(res.campId)}
+              className="font-semibold text-sm hover:text-primary transition-colors line-clamp-1 text-left"
+            >
+              캠핑장 #{res.campId}
             </button>
             <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${cfg.color}`}>
               {cfg.icon} {cfg.label}
             </span>
           </div>
+
           <div className="text-xs text-muted-foreground mb-2">
-            {reservation.checkInDate} ~ {reservation.checkOutDate} ({nights}박) · {reservation.guestCount}명
+            {res.checkInDate} ~ {res.checkOutDate} ({nights}박) · {res.guestCount}명
           </div>
-          {reservation.amount && (
-            <div className="text-sm font-bold text-primary" style={{ fontFamily: "'DM Mono', monospace" }}>
-              ₩{reservation.amount.toLocaleString()}
-              <span className={`ml-2 text-xs font-normal px-1.5 py-0.5 rounded ${reservation.paymentStatus === "PAID" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-                {reservation.paymentStatus === "PAID" ? "결제완료" : "미결제"}
-              </span>
-            </div>
+
+          <div className="text-sm font-bold text-primary" style={{ fontFamily: "'DM Mono', monospace" }}>
+            ₩{res.totalPrice.toLocaleString()}
+            <span className={`ml-2 text-xs font-normal px-1.5 py-0.5 rounded ${isPaid ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+              {isPaid ? "결제완료" : "미결제"}
+            </span>
+          </div>
+
+          {res.specialRequest && (
+            <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1">요청사항: {res.specialRequest}</p>
           )}
         </div>
       </div>
-      {(reservation.status === "PENDING" || reservation.status === "RESERVED") && (
+
+      {/* 취소 / 결제 */}
+      {isCancelable && !isCompleted && (
         <div className="flex gap-2 mt-3 pt-3 border-t border-border">
           <button
-            onClick={() => onCancel?.(reservation.reservationId)}
-            className="flex-1 py-2 rounded-xl border border-destructive/40 text-destructive text-xs font-medium hover:bg-destructive/5 transition-all"
+            onClick={() => onCancel?.(res.id)}
+            disabled={processing}
+            className="flex-1 py-2 rounded-xl border border-destructive/40 text-destructive text-xs font-medium hover:bg-destructive/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            예약 취소
+            {processing ? "처리 중..." : "예약 취소"}
           </button>
-          {reservation.status === "PENDING" && reservation.paymentStatus !== "PAID" && (
+          {!isPaid && (
             <button
-              onClick={() => onPay?.(reservation.reservationId)}
-              className="flex-1 py-2 rounded-xl bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-all"
+              onClick={() => onPay?.(res.id)}
+              disabled={processing}
+              className="flex-1 py-2 rounded-xl bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              결제하기
+              {processing ? "처리 중..." : "결제하기"}
             </button>
           )}
         </div>
       )}
-      {reservation.status === "COMPLETED" && (
+
+      {/* 이용 완료 → 리뷰 */}
+      {isCompleted && (
         <div className="mt-3 pt-3 border-t border-border">
           <button
-            onClick={() => onReview?.(reservation.campId)}
+            onClick={() => onReview?.(res.campId)}
             className="w-full py-2 rounded-xl border border-primary/30 text-primary text-xs font-medium hover:bg-primary/5 transition-all flex items-center justify-center gap-1"
           >
             <Star size={12} /> 리뷰 작성하기
