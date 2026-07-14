@@ -20,6 +20,14 @@ export interface GetCampsitesParams {
   numOfRows?: number;
 }
 
+/** 캠핑장 목록 공통 envelope (CampListResponseDto) */
+export interface CampListEnvelope {
+  resultCode: string;
+  resultMsg: string;
+  data: Camp[];
+  totalCount: number;
+}
+
 // 키워드/지역/유형/최대금액 필터 + 정렬 + 페이징을 조합한 캠핑장 검색(=목록 조회)
 export const getCampsites = (params: GetCampsitesParams = {}) =>
   instance.get<{ resultCode: string; resultMsg: string; data: Camp[]; totalCount: number }>(
@@ -52,7 +60,7 @@ export const createCampsite = (payload: CampRegistrationRequest) =>
   instance.post<{ resultCode: string; resultMsg: string; data: Camp }>("/v1/camps/register", payload);
 
 export const getMyCampsites = () =>
-  instance.get<{ resultCode: string; resultMsg: string; data: Camp[]; totalCount: number }>("/v1/camps/my");
+  instance.get<CampListEnvelope>("/v1/camps/my") as unknown as Promise<CampListEnvelope>;
 
 // 실제로는 수정(UPDATE) 처리 (REST 컨벤션상 POST로 구현됨)
 export const updateCampsite = (contentId: number, payload: Partial<Camp>) =>
