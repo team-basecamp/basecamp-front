@@ -76,3 +76,10 @@ export const updateCampsite = (campId: number, payload: Partial<Camp>) =>
 // 캠핑장 삭제 (DELETE /v1/camps/{campId})
 export const deleteCampsite = (campId: number) =>
   instance.delete(`/v1/camps/${campId}`);
+
+// 관리자 전용
+// 고캠핑 공공API 전체를 백엔드가 직접 호출해 DB에 동기화 (POST /v1/camps/fetch, ADMIN 전용).
+// 페이지 전체를 순회하며 저장하므로 시간이 오래 걸릴 수 있어 axios 기본 타임아웃(10s)을 끈다.
+// 성공/실패 모두 JSON이 아닌 순수 텍스트 메시지를 그대로 응답 본문으로 돌려준다.
+export const fetchGocampingCamps = () =>
+  instance.post<string>("/v1/camps/fetch", undefined, { timeout: 0 }) as unknown as Promise<string>;
