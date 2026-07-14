@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Edit3, Tent } from "lucide-react";
-import { getMyCampsites } from "../../api/campsite";
+import { Plus, Edit3, Tent, Trash2 } from "lucide-react";
+import type { AxiosError } from "axios";
+import { getMyCampsites, deleteCampsite } from "../../api/campsite";
 import BusinessHeader from "./BusinessHeader";
 import type { Camp } from "../../types";
 
@@ -10,12 +11,16 @@ import type { Camp } from "../../types";
  * - 로그인한 회원이 등록한 캠핑장 전체를 GET /v1/camps/my로 조회해 카드 목록으로 보여줌
  * - "정보 수정"은 해당 캠핑장의 등록/수정 폼(CampsiteFormPage, /business/campsites/:contentId/edit)으로,
  *   "새 캠핑장 등록"은 같은 폼의 등록 모드(/business/campsites/new)로 이동
+ *   (수정은 대응하는 백엔드 API가 아직 없어 실제로는 동작하지 않음)
+ *  *  - "삭제"는 DELETE /v1/camps/{campId}로 연동됨 (softDelete, 소유자 본인만 가능)
+
  */
 export default function CampsiteManagePage() {
   const navigate = useNavigate();
   const [myCamps, setMyCamps] = useState<Camp[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     getMyCampsites()
@@ -23,6 +28,22 @@ export default function CampsiteManagePage() {
       .catch(() => setErrorMsg("캠핑장 목록을 불러오지 못했습니다."))
       .finally(() => setLoading(false));
   }, []);
+
+  const onDelete = async (campId: number) => {
+    if (!window.confirm("이 캠핑장을 삭제하시겠습니까? 삭제하면 되돌릴 수 없습니다.")) return;
+
+    setErrorMsg(null);
+    setDeletingId(campId);
+    try {
+      await deleteCampsite(campId);
+      setMyCamps((prev) => prev.filter((camp) => (camp.campId ?? camp.contentId) !== campId));
+    } catch (err) {
+      const axiosErr = err as AxiosError<{ message?: string }>;
+      setErrorMsg(axiosErr.response?.data?.message || "캠핑장 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
@@ -74,6 +95,13 @@ export default function CampsiteManagePage() {
                     className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:border-primary hover:text-primary transition-all"
                   >
                     <Edit3 size={14} /> 정보 수정
+                  </button>
+                  <button
+                    onClick={() => onDelete(id)}
+                    disabled={deletingId === id}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:border-destructive hover:text-destructive transition-all disabled:opacity-50"
+                  >
+                    <Trash2 size={14} /> {deletingId === id ? "삭제 중..." : "삭제"}
                   </button>
                 </div>
               </div>
