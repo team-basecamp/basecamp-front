@@ -1,12 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import type { AxiosError } from "axios";
-import { CAMPS } from "../../data/camps";
-import { createCampsite } from "../../api/campsite";
-import type { Camp, CampRegistrationRequest } from "../../types";
+import { createCampsite, getCampsiteDetail, updateCampsite } from "../../api/campsite";
+import type { CampRegistrationRequest } from "../../types";
 
 const INDUTY_OPTIONS = ["일반야영장", "오토캠핑장", "글램핑", "카라반"];
+
+const EMPTY_FORM = {
+  facltNm: "",
+  addr1: "",
+  addr2: "",
+  tel: "",
+  induty: INDUTY_OPTIONS[0],
+  gnrlSiteCo: 0,
+  autoSiteCo: 0,
+  glampSiteCo: 0,
+  price: 0,
+  firstImageUrl: "",
+  lineIntro: "",
+  homepage: "",
+};
 
 interface ValidationErrorItem {
   field: string;
@@ -17,33 +31,44 @@ interface ValidationErrorItem {
 /**
  * 캠핑장 등록/수정 폼 (/business/campsites/new, /business/campsites/:contentId/edit)
  * - PostFormPage와 동일한 패턴: :contentId 파라미터 존재 여부로 등록/수정 모드를 나눔
- * - 등록(신규)은 POST /v1/camps/register 실제 백엔드 API로 연동됨
- * - 수정은 대응하는 백엔드 API가 아직 없어 기존 캠핑장 객체를 Object.assign으로 직접 mutate하는
- *   mock 방식을 그대로 유지함
+ * - 등록(신규)은 POST /v1/camps/register, 수정은 PATCH /v1/camps/{campId} 실제 백엔드 API로 연동됨
+ * - 수정 모드의 기존 정보는 GET /v1/camps/{campId}(실제 PK)로 백엔드에서 조회한다(mock 데이터에는 자체 등록 캠핑장이 없음)
  */
 export default function CampsiteFormPage() {
   const { contentId } = useParams<{ contentId: string }>();
   const navigate = useNavigate();
+  const isEdit = !!contentId;
+  const campId = contentId ? Number(contentId) : undefined;
 
-  const editingCamp = contentId ? CAMPS.find((c) => c.contentId === Number(contentId)) : undefined;
-  const isEdit = !!editingCamp;
-
-  const [form, setForm] = useState({
-    facltNm: editingCamp?.facltNm ?? "",
-    addr1: editingCamp?.addr1 ?? "",
-    addr2: editingCamp?.addr2 ?? "",
-    tel: editingCamp?.tel ?? "",
-    induty: editingCamp?.induty ?? INDUTY_OPTIONS[0],
-    gnrlSiteCo: editingCamp?.gnrlSiteCo ?? 0,
-    autoSiteCo: editingCamp?.autoSiteCo ?? 0,
-    glampSiteCo: editingCamp?.glampSiteCo ?? 0,
-    price: editingCamp?.price ?? 0,
-    firstImageUrl: editingCamp?.firstImageUrl ?? "",
-    lineIntro: editingCamp?.lineIntro ?? "",
-    homepage: editingCamp?.homepage ?? "",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!campId) return;
+    setLoading(true);
+    getCampsiteDetail(campId)
+      .then((res: any) => {
+        const camp = res.data?.data ?? res.data;
+        setForm({
+          facltNm: camp.facltNm ?? "",
+          addr1: camp.addr1 ?? "",
+          addr2: camp.addr2 ?? "",
+          tel: camp.tel ?? "",
+          induty: camp.induty ?? INDUTY_OPTIONS[0],
+          gnrlSiteCo: camp.gnrlSiteCo ?? 0,
+          autoSiteCo: camp.autoSiteCo ?? 0,
+          glampSiteCo: camp.glampSiteCo ?? 0,
+          price: camp.price ?? 0,
+          firstImageUrl: camp.firstImageUrl ?? "",
+          lineIntro: camp.lineIntro ?? "",
+          homepage: camp.homepage ?? "",
+        });
+      })
+      .catch(() => setErrorMsg("캠핑장 정보를 불러오지 못했습니다."))
+      .finally(() => setLoading(false));
+  }, [campId]);
 
   const updateField = <K extends keyof typeof form>(key: K) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -60,9 +85,35 @@ export default function CampsiteFormPage() {
   const onSubmit = async () => {
     if (!canSubmit) return;
 
+    setSubmitting(true);
+    setErrorMsg(null);
+
     if (isEdit) {
-      Object.assign(editingCamp!, form);
-      navigate("/business/campsites");
+      const payload = {
+        facltNm: form.facltNm,
+        addr1: form.addr1,
+        addr2: form.addr2 || undefined,
+        tel: form.tel,
+        induty: form.induty,
+        price: form.price,
+        gnrlSiteCo: form.gnrlSiteCo,
+        autoSiteCo: form.autoSiteCo,
+        glampSiteCo: form.glampSiteCo,
+        lineIntro: form.lineIntro || undefined,
+        firstImageUrl: form.firstImageUrl || undefined,
+        homepage: form.homepage || undefined,
+      };
+
+      try {
+        await updateCampsite(campId!, payload);
+        navigate("/business/campsites");
+      } catch (err) {
+        const axiosErr = err as AxiosError<{ message?: string; errors?: ValidationErrorItem[] }>;
+        const validationMsg = axiosErr.response?.data?.errors?.map((e) => e.reason).join("\n");
+        setErrorMsg(validationMsg || axiosErr.response?.data?.message || "캠핑장 수정에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
 
@@ -82,9 +133,6 @@ export default function CampsiteFormPage() {
       firstImageUrl: form.firstImageUrl || undefined,
       homepage: form.homepage || undefined,
     };
-
-    setSubmitting(true);
-    setErrorMsg(null);
     try {
       await createCampsite(payload);
       navigate("/business/campsites");
@@ -107,6 +155,9 @@ export default function CampsiteFormPage() {
         {isEdit ? "캠핑장 정보 수정" : "새 캠핑장 등록"}
       </h1>
 
+      {loading ? (
+        <div className="py-16 text-center text-muted-foreground text-sm">불러오는 중...</div>
+      ) : (
       <div className="space-y-5">
         <div>
           <label className="text-sm font-semibold mb-1.5 block">시설명</label>
@@ -252,10 +303,11 @@ export default function CampsiteFormPage() {
             disabled={!canSubmit}
             className="px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {submitting ? "등록 중..." : isEdit ? "수정 완료" : "등록하기"}
+            {submitting ? (isEdit ? "수정 중..." : "등록 중...") : isEdit ? "수정 완료" : "등록하기"}
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }
