@@ -10,7 +10,7 @@ import { Calendar } from "lucide-react";
 import {
   getMyReservations,
   cancelReservation as cancelReservationApi,
-  type ReservationResponse,
+  type ReservationListResponse,
 } from "../../api/reservation";
 import { getCampsiteDetail } from "../../api/campsite";
 import ReservationCard from "./ReservationCard";
@@ -18,7 +18,7 @@ import ReservationCard from "./ReservationCard";
 export default function ReservationList() {
   const navigate = useNavigate();
 
-  const [reservations, setReservations] = useState<ReservationResponse[]>([]);
+  const [reservations, setReservations] = useState<ReservationListResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
@@ -42,8 +42,12 @@ export default function ReservationList() {
     setProcessingId(reservationId);
     setError(null);
     try {
-      const updated = await cancelReservationApi(reservationId);
-      setReservations((prev) => prev.map((r) => (r.id === reservationId ? updated : r)));
+      // const updated = await cancelReservationApi(reservationId);
+      // setReservations((prev) => prev.map((r) => (r.id === reservationId ? updated : r)));
+      await cancelReservationApi(reservationId);
+
+      const page = await getMyReservations({ page: 0, size: 50 });
+      setReservations(page.content);
     } catch (e: any) {
       setError(e?.response?.data?.message ?? "예약 취소에 실패했습니다");
     } finally {

@@ -1,12 +1,16 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, Calendar, Heart, FileText, LogOut, Pencil } from "lucide-react";
 import { POSTS } from "../../data/posts";
 import useLogout from "../../hooks/useLogout";
 import useAuthStore from "../../store/authStore";
 import useNotificationStore from "../../store/notificationStore";
-import useReservationStore from "../../store/reservationStore";
+//import useReservationStore from "../../store/reservationStore";
 import useWishlistStore from "../../store/wishlistStore";
+import {
+  getMyReservations,
+  type ReservationListResponse,
+} from "../../api/reservation";
 
 /**
  * 마이페이지 공용 헤더 (프로필 카드 + 탭 네비게이션)
@@ -28,13 +32,20 @@ export default function MyPageHeader({ active }: { active: MyTab }) {
   const logout = useLogout();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
   // reservationStore/wishlistStore(zustand)를 사용해 다른 페이지로 이동해도(예: 예약내역 -> 마이페이지) 예약/찜 개수가 그대로 유지되도록 함
-  const reservations = useReservationStore((s) => s.reservations);
+  const [reservations, setReservations] = useState<ReservationListResponse[]>([]);
+  useEffect(() => {
+  getMyReservations({ page: 0, size: 50 })
+    .then((page) => setReservations(page.content))
+    .catch((e) => {
+      console.error("예약 목록 조회 실패", e);
+    });
+  }, []);
+  
   const wishedIds = useWishlistStore((s) => s.wishedIds);
-
   const myPosts = POSTS.filter((p) => p.writer === user?.nickname);
 
   const TABS: { key: MyTab; label: string; icon: ReactNode; badge?: number }[] = [
-    { key: "reservations", label: "예약 내역", icon: <Calendar size={15} />, badge: reservations.filter((r) => r.status === "PENDING").length },
+    { key: "reservations", label: "예약 내역", icon: <Calendar size={15} />, badge: reservations.filter((r) => ["PENDING", "PENDING_PAYMENT"].includes(r.status)).length },
     { key: "wishlist", label: "찜한 캠핑장", icon: <Heart size={15} /> },
     { key: "posts", label: "내 게시글", icon: <FileText size={15} /> },
     { key: "notifications", label: "알림", icon: <Bell size={15} />, badge: unreadCount },
