@@ -23,8 +23,27 @@ export const updatePost = (postId: number, payload: { category: PostCategory; ti
 // 실제로는 삭제(DELETE) 처리 (REST 컨벤션상 POST로 구현됨)
 export const deletePost = (postId: number) => instance.post(`/v1/posts/${postId}/delete`, { postId });
 
-export const reportPost = (postId: number, reason: string, description: string) =>
-  instance.post(`/v1/posts/${postId}/report`, { postId, reason, description });
+/** 게시글 신고 사유 코드. 백엔드 PostReportRequest 의 허용값과 일치한다. */
+export type PostReportReason = "SPAM" | "INAPPROPRIATE" | "ILLEGAL" | "ETC";
+
+/** 신고 접수 응답(PostReportResponse). instance 인터셉터가 봉투를 벗겨 이 DTO 로 resolve 된다. */
+export interface PostReportResult {
+  reportId: number;
+  postId: number;
+  createdAt: string;
+  message: string;
+}
+
+/**
+ * 게시글 신고. 로그인 필요. reason 은 필수(4종 중 하나), description 은 선택(최대 1000자).
+ * 이미 신고한 글이면 409, 없거나 삭제된 글이면 404.
+ * 대상 postId 는 경로 변수를 신뢰하므로 본문에는 reason·description 만 담는다.
+ */
+export const reportPost = (postId: number, reason: PostReportReason, description?: string) =>
+  instance.post<PostReportResult>(`/v1/posts/${postId}/report`, {
+    reason,
+    description: description?.trim() || undefined,
+  }) as unknown as Promise<PostReportResult>;
 
 export const createComment = (postId: number, content: string) =>
   instance.post<{ commentId: number; message: string }>(`/v1/posts/${postId}/comments`, { postId, content });
