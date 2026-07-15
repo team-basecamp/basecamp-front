@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Users, ShieldOff, Flag, Tent } from "lucide-react";
-import { ADMIN_REPORTS } from "../../data/admin";
+import { getAdminReports } from "../../api/adminPost";
 
 /**
  * 관리자 페이지 공통 헤더 (프로필 요약 + 3개 탭 네비게이션: 회원/블랙리스트/신고)
@@ -20,7 +21,14 @@ const TAB_ROUTES: Record<AdminTab, string> = {
 
 export default function AdminHeader({ active }: { active: AdminTab }) {
   const navigate = useNavigate();
-  const pendingReports = ADMIN_REPORTS.filter((r) => r.status === "PENDING").length;
+
+  // 처리 대기(PENDING) 신고 건수를 배지로 표시한다. 목록 자체는 필요 없어 첫 페이지의 totalElements 만 쓴다.
+  // ReportListPage 의 블라인드 처리 후에도 같은 키(adminPendingReportCount)를 무효화해 배지를 갱신한다.
+  const { data } = useQuery({
+    queryKey: ["adminPendingReportCount"],
+    queryFn: () => getAdminReports({ status: "PENDING", size: 1 }),
+  });
+  const pendingReports = data?.totalElements ?? 0;
 
   const TABS: { key: AdminTab; label: string; icon: ReactNode; badge?: number }[] = [
     { key: "members", label: "회원 관리", icon: <Users size={15} /> },
