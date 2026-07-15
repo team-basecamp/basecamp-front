@@ -7,6 +7,42 @@ import type { CampRegistrationRequest } from "../../types";
 
 const INDUTY_OPTIONS = ["일반야영장", "오토캠핑장", "글램핑", "카라반"];
 
+// 다음(Daum) 우편번호 서비스 공식 CDN 스크립트. 백엔드 키 없이 무료로 쓸 수 있다.
+// 이 스크립트가 로드되면 전역 객체 window.daum.Postcode 가 생긴다.
+const DAUM_POSTCODE_SRC = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+
+// window.daum 은 TypeScript가 원래 모르는 값이라(외부 스크립트가 런타임에 붙이는 전역 객체),
+// 타입 에러 없이 window.daum.Postcode 를 쓸 수 있도록 전역 타입에 선언만 추가해준다.
+declare global {
+  interface Window {
+    daum: any;
+  }
+}
+
+// 주소 검색 스크립트를 <head>에 딱 한 번만 삽입해서 불러오는 함수.
+// - 이미 로드가 끝났으면(window.daum.Postcode 존재) 바로 resolve
+// - 로드 중인 <script> 태그가 이미 있으면 그 로드가 끝나길 기다림(중복 삽입 방지)
+// - 둘 다 아니면 새로 <script> 태그를 만들어 붙이고 로드 완료/실패를 Promise로 알려줌
+function loadDaumPostcodeScript(): Promise<void> {
+  if (window.daum?.Postcode) return Promise.resolve();
+
+  const existing = document.querySelector<HTMLScriptElement>(`script[src="${DAUM_POSTCODE_SRC}"]`);
+  if (existing) {
+    return new Promise((resolve, reject) => {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("주소 검색 스크립트를 불러오지 못했습니다.")));
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = DAUM_POSTCODE_SRC;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("주소 검색 스크립트를 불러오지 못했습니다."));
+    document.head.appendChild(script);
+  });
+}
+
 const EMPTY_FORM = {
   facltNm: "",
   addr1: "",
@@ -44,6 +80,18 @@ export default function CampsiteFormPage() {
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // 주소 검색(다음 우편번호) 스크립트 로드 실패 시 사용자에게 보여줄 안내 메시지
+  const [addressSearchError, setAddressSearchError] = useState<string | null>(null);
+
+  // 페이지가 열리자마자 주소 검색 스크립트를 미리 불러온다.
+  // "주소 검색" 버튼을 누른 시점에 그때서야 불러오면, 스크립트 로딩을 기다리는 동안
+  // 클릭(사용자 동작)과 팝업 열기 사이에 시간차가 생겨 브라우저 팝업 차단기에 걸릴 수 있다.
+  // 미리 불러와두면 클릭 즉시(동기적으로) 팝업을 열 수 있어 이 문제가 없다.
+  useEffect(() => {
+    loadDaumPostcodeScript().catch(() => {
+      setAddressSearchError("주소 검색을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    });
+  }, []);
 
   useEffect(() => {
     if (!campId) return;
@@ -76,6 +124,26 @@ export default function CampsiteFormPage() {
     const raw = e.target.value;
     const isNumberField = key === "gnrlSiteCo" || key === "autoSiteCo" || key === "glampSiteCo" || key === "price";
     setForm((f) => ({ ...f, [key]: isNumberField ? Number(raw) : raw }));
+  };
+
+  // "주소 검색" 버튼 클릭 핸들러. 다음 우편번호 팝업(새 창)을 띄우고,
+  // 사용자가 목록에서 주소를 하나 선택하면(oncomplete) 그 주소를 addr1에 채워 넣는다.
+  // 상세주소(addr2)는 이전에 입력했던 값이 새 주소와 안 맞을 수 있어 함께 초기화한다.
+  const openAddressSearch = () => {
+    // 팝업 차단을 피하려면 .open()이 클릭 핸들러 안에서 동기적으로 실행되어야 한다.
+    // 스크립트는 마운트 시점에 미리 불러와두고(useEffect), 여기서는 await 없이 바로 연다.
+    if (!window.daum?.Postcode) {
+      setAddressSearchError("주소 검색을 아직 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+    setAddressSearchError(null);
+    new window.daum.Postcode({
+      oncomplete: (data: any) => {
+        // 도로명주소가 있으면 그걸 쓰고, 없는 예외적인 경우만 지번주소로 대체한다.
+        const roadAddr: string = data.roadAddress || data.jibunAddress;
+        setForm((f) => ({ ...f, addr1: roadAddr, addr2: "" }));
+      },
+    }).open();
   };
 
   const canSubmit = form.facltNm.trim().length > 0 && form.addr1.trim().length > 0 && !submitting;
@@ -170,15 +238,34 @@ export default function CampsiteFormPage() {
           />
         </div>
 
+        {/*
+          주소 입력칸: 직접 타이핑하지 못하게 readOnly로 막고, "주소 검색" 버튼으로만 채워지게 한다.
+          자유 텍스트를 그대로 받으면 오타/애매한 주소 때문에 백엔드 지오코딩(주소→좌표 변환)이
+          실패해서 지도에 핀이 안 찍히는 경우가 생기는데, 검색 팝업에서 고른 주소만 쓰게 하면
+          이 문제를 원천적으로 막을 수 있다.
+        */}
         <div>
           <label className="text-sm font-semibold mb-1.5 block">주소</label>
-          <input
-            type="text"
-            value={form.addr1}
-            onChange={updateField("addr1")}
-            placeholder="도로명 주소"
-            className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={form.addr1}
+              readOnly
+              placeholder="주소 검색 버튼을 눌러 주소를 선택해주세요"
+              className="flex-1 bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground cursor-default"
+            />
+            <button
+              type="button"
+              onClick={openAddressSearch}
+              className="px-4 py-3 rounded-xl border border-border text-sm font-semibold hover:border-primary/30 hover:text-primary transition-all whitespace-nowrap"
+            >
+              주소 검색
+            </button>
+          </div>
+          {/* 스크립트 로딩 실패 등 주소 검색 자체를 못 여는 경우에만 노출되는 안내문 */}
+          {addressSearchError && (
+            <p className="text-xs text-destructive mt-1.5">{addressSearchError}</p>
+          )}
         </div>
 
         <div>
