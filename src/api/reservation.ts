@@ -35,6 +35,7 @@ export interface ReservationResponse {
   rejectReason?: string | null;
 }
 
+/** ReservationListResponse.java - 나의 예약목록 조회*/
 export interface ReservationListResponse {
   id: number;
   campId: number;
@@ -51,6 +52,14 @@ export interface ReservationListResponse {
   rejectReason?: string | null;
   cancelDate?: string | null;
   createdAt: string;
+}
+
+/** ReservationStatsResponse.java - 사업자 대시보드 예약 통계 (확정 예약 기준)*/
+export interface ReservationStats {
+  monthlyRevenue: number;
+  monthlyReservations: number;
+  yearlyReservations: number;
+  averageRating: number | null; // TODO: 리뷰 도메인 미구현 — null
 }
 
 /** Spring Data Page */
@@ -129,3 +138,8 @@ export const rejectReservation = (
   reason: string,
 ): Promise<ReservationResponse> =>
   instance.post(`/v1/reservations/${reservationId}/reject`, { reason });
+
+
+export async function getReservationStats(): Promise<ReservationStats> {
+  return instance.get('/v1/reservations/stats');
+}
