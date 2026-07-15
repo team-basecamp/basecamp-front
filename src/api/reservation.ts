@@ -35,6 +35,24 @@ export interface ReservationResponse {
   rejectReason?: string | null;
 }
 
+export interface ReservationListResponse {
+  id: number;
+  campId: number;
+  campName: string;
+  campImage: string | null;
+  checkInDate: string;
+  checkOutDate: string;
+  guestCount: number;
+  totalPrice: number;
+  customerName: string;
+  customerPhone: string;
+  specialRequest: string | null;
+  status: ReservationStatus;
+  rejectReason?: string | null;
+  cancelDate?: string | null;
+  createdAt: string;
+}
+
 /** Spring Data Page */
 export interface Page<T> {
   content: T[];
@@ -83,7 +101,7 @@ export const cancelReservation = (
 /** 내 예약 목록 (page 는 0-based) */
 export const getMyReservations = (
   { page = 0, size = 10, sort }: PageParams = {},
-): Promise<Page<ReservationResponse>> =>
+): Promise<Page<ReservationListResponse>> =>
   instance.get("/v1/reservations/me", {
     params: { page, size, ...(sort ? { sort } : {}) },
   });

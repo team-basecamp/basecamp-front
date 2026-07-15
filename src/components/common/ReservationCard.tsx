@@ -6,7 +6,7 @@
  */
 import type { ReactNode } from "react";
 import { Star, CheckCircle, Clock, XCircle, AlertCircle, CreditCard } from "lucide-react";
-import type { ReservationResponse, ReservationStatus } from "../../api/reservation";
+import type { ReservationListResponse, ReservationStatus } from "../../api/reservation";
 
 const STATUS_CONFIG: Record<ReservationStatus, { label: string; icon: ReactNode; color: string }> = {
   PENDING_PAYMENT: { label: "결제 대기", icon: <CreditCard size={12} />,  color: "text-accent bg-accent/10" },
@@ -17,7 +17,7 @@ const STATUS_CONFIG: Record<ReservationStatus, { label: string; icon: ReactNode;
 };
 
 interface ReservationCardProps {
-  reservation: ReservationResponse;
+  reservation: ReservationListResponse;
   processing?: boolean;
   onCampClick: (campId: number) => void;
   onCancel?: (reservationId: number) => void;
@@ -47,9 +47,17 @@ export default function ReservationCard({
     <div className="bg-card border border-border rounded-2xl p-5">
       <div className="flex gap-4">
         {/* TODO: ReservationResponse 에 campImage 가 없다. 백엔드 DTO 에 추가되면 img 로 교체 */}
-        <div className="w-20 h-16 rounded-xl bg-muted flex-shrink-0 flex items-center justify-center text-2xl">
-          🏕️
-        </div>
+        {res.campImage ? (
+          <img
+            src={res.campImage}
+            alt={res.campName}
+            className="w-20 h-16 rounded-xl object-cover flex-shrink-0"
+          />
+        ) : (
+          <div className="w-20 h-16 rounded-xl bg-muted flex-shrink-0 flex items-center justify-center text-2xl">
+            🏕️
+          </div>
+        )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1">
@@ -58,7 +66,7 @@ export default function ReservationCard({
               onClick={() => onCampClick(res.campId)}
               className="font-semibold text-sm hover:text-primary transition-colors line-clamp-1 text-left"
             >
-              캠핑장 #{res.campId}
+              {res.campName}
             </button>
             <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${cfg.color}`}>
               {cfg.icon} {cfg.label}
@@ -78,6 +86,12 @@ export default function ReservationCard({
 
           {res.specialRequest && (
             <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1">요청사항: {res.specialRequest}</p>
+          )}
+
+          {res.status === "REJECTED" && res.rejectReason && (
+            <p className="text-xs text-destructive mt-1.5">
+              거절 사유: {res.rejectReason}
+            </p>
           )}
         </div>
       </div>
