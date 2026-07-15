@@ -62,6 +62,13 @@ export interface ReservationStats {
   averageRating: number | null; // TODO: 리뷰 도메인 미구현 — null
 }
 
+/** MonthlyRevenueResponse.java - 월별 대시보드 예약 통계*/
+export interface MonthlyRevenue {
+  month: number;
+  revenue: number;
+  count: number;
+}
+
 /** Spring Data Page */
 export interface Page<T> {
   content: T[];
@@ -142,4 +149,8 @@ export const rejectReservation = (
 
 export async function getReservationStats(): Promise<ReservationStats> {
   return instance.get('/v1/reservations/stats');
+}
+
+export async function getMonthlyRevenue(): Promise<MonthlyRevenue[]> {
+  return instance.get('/v1/reservations/stats/monthly');
 }
