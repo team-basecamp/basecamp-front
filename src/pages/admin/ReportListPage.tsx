@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Flag, EyeOff, ChevronLeft, ChevronRight, FileText } from "lucide-react";
+import { Flag, EyeOff, ChevronLeft, ChevronRight, FileText, X } from "lucide-react";
 import {
   getAdminReports,
   getAdminPostDetail,
   blindPost,
+  rejectReport,
   type ReportedPost,
   type ReportStatus,
   type PostStatus,
@@ -23,9 +24,10 @@ import AdminHeader from "./AdminHeader";
  * 신고 내역 관리 화면 (/admin/reports)
  * - 신고된 게시글 목록을 처리 상태별로 조회한다(GET /v1/admin/posts/reports).
  * - 신고 행을 눌러 게시글 원문을 상태와 무관하게 열람하고(GET /v1/admin/posts/{postId}),
- *   ACTIVE 인 글은 사유를 입력해 블라인드 처리한다(POST /v1/admin/posts/{postId}/blind).
+ *   다이얼로그에서 두 가지 조치를 한다:
+ *     · 블라인드 처리 (POST /v1/admin/posts/{postId}/blind)  — ACTIVE 인 글만. 사유 필수.
+ *     · 신고 반려     (POST /v1/admin/posts/reports/{reportId}/reject) — PENDING 신고만.
  * - 블라인드하면 해당 글의 PENDING 신고가 백엔드에서 자동으로 ACCEPTED 로 정리된다.
- *   (신고 "반려" 엔드포인트는 아직 백엔드에 없어 제공하지 않는다.)
  */
 
 const REASON_LABELS: Record<string, string> = {
@@ -72,7 +74,7 @@ const STATUS_FILTERS: { key: ReportStatus; label: string }[] = [
 export default function ReportListPage() {
   const [status, setStatus] = useState<ReportStatus>("PENDING");
   const [page, setPage] = useState(0);
-  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
+  const [selectedReport, setSelectedReport] = useState<ReportedPost | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["adminReports", status, page],
@@ -119,7 +121,7 @@ export default function ReportListPage() {
               <ReportRow
                 key={report.reportId}
                 report={report}
-                onOpen={() => setSelectedPostId(report.postId)}
+                onOpen={() => setSelectedReport(report)}
               />
             ))}
           </div>
@@ -130,7 +132,7 @@ export default function ReportListPage() {
         </>
       )}
 
-      <PostDetailDialog postId={selectedPostId} onClose={() => setSelectedPostId(null)} />
+      <PostDetailDialog report={selectedReport} onClose={() => setSelectedReport(null)} />
     </div>
   );
 }
@@ -166,13 +168,17 @@ function ReportRow({ report, onOpen }: { report: ReportedPost; onOpen: () => voi
 }
 
 /**
- * 신고 대상 게시글 상세 다이얼로그.
- * 열릴 때(postId 확정) 상세를 조회하고, ACTIVE 인 글은 사유를 입력해 블라인드 처리한다.
+ * 신고 대상 게시글 상세 다이얼로그 + 조치 허브.
+ * 열릴 때 게시글 원문을 조회하고, 두 조치를 상태에 따라 노출한다:
+ *   · 블라인드 처리(게시글 단위) — 게시글이 ACTIVE 일 때. 사유 필수.
+ *   · 신고 반려(신고 1건 단위)   — 신고가 PENDING 일 때.
  */
-function PostDetailDialog({ postId, onClose }: { postId: number | null; onClose: () => void }) {
+function PostDetailDialog({ report, onClose }: { report: ReportedPost | null; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const postId = report?.postId ?? null;
 
   const { data: post, isLoading, isError } = useQuery({
     queryKey: ["adminPostDetail", postId],
@@ -180,16 +186,27 @@ function PostDetailDialog({ postId, onClose }: { postId: number | null; onClose:
     enabled: postId !== null,
   });
 
+  // 조치 성공 후 목록·상세·헤더 배지를 모두 갱신하고 다이얼로그를 닫는다.
+  const afterAction = () => {
+    void queryClient.invalidateQueries({ queryKey: ["adminReports"] });
+    void queryClient.invalidateQueries({ queryKey: ["adminPostDetail", postId] });
+    void queryClient.invalidateQueries({ queryKey: ["adminPendingReportCount"] });
+    close();
+  };
+
   const blind = useMutation({
     mutationFn: () => blindPost(postId as number, reason.trim()),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["adminReports"] });
-      void queryClient.invalidateQueries({ queryKey: ["adminPostDetail", postId] });
-      void queryClient.invalidateQueries({ queryKey: ["adminPendingReportCount"] });
-      close();
-    },
+    onSuccess: afterAction,
     onError: (err) => setError(getApiErrorMessage(err, "블라인드 처리에 실패했습니다.")),
   });
+
+  const reject = useMutation({
+    mutationFn: () => rejectReport(report!.reportId),
+    onSuccess: afterAction,
+    onError: (err) => setError(getApiErrorMessage(err, "신고 반려에 실패했습니다.")),
+  });
+
+  const pending = blind.isPending || reject.isPending;
 
   // 다이얼로그를 닫을 때 입력/에러 상태를 초기화한다.
   const close = () => {
@@ -199,7 +216,7 @@ function PostDetailDialog({ postId, onClose }: { postId: number | null; onClose:
   };
 
   return (
-    <Dialog open={postId !== null} onOpenChange={(open) => !open && close()}>
+    <Dialog open={report !== null} onOpenChange={(open) => !open && close()}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>게시글 상세</DialogTitle>
@@ -240,8 +257,8 @@ function PostDetailDialog({ postId, onClose }: { postId: number | null; onClose:
               </div>
             )}
 
-            {/* 정상 글만 블라인드할 수 있다. 이미 블라인드면 409, 삭제된 글이면 404 이므로 UI에서 미리 막는다. */}
-            {post.status === "ACTIVE" ? (
+            {/* 블라인드는 정상(ACTIVE) 글만. 이미 블라인드면 409, 삭제된 글이면 404 이므로 UI에서 미리 막는다. */}
+            {post.status === "ACTIVE" && (
               <div className="space-y-2 border-t border-border pt-4">
                 <textarea
                   value={reason}
@@ -251,21 +268,43 @@ function PostDetailDialog({ postId, onClose }: { postId: number | null; onClose:
                   placeholder="블라인드 처리 사유를 입력하세요 (최대 200자)"
                   className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-destructive/30 placeholder:text-muted-foreground resize-none"
                 />
-                {error && <p className="text-xs text-destructive">{error}</p>}
                 <button
                   onClick={() => {
                     setError(null);
                     blind.mutate();
                   }}
-                  disabled={blind.isPending || reason.trim().length === 0}
+                  disabled={pending || reason.trim().length === 0}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-destructive text-white text-sm font-medium hover:bg-destructive/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <EyeOff size={14} /> {blind.isPending ? "처리 중…" : "블라인드 처리"}
                 </button>
               </div>
-            ) : (
+            )}
+
+            {/* 반려는 대기(PENDING) 신고만. 이미 처리된 신고면 409 이므로 UI에서 미리 막는다. */}
+            {report?.reportStatus === "PENDING" && (
+              <div className="border-t border-border pt-4">
+                <button
+                  onClick={() => {
+                    setError(null);
+                    reject.mutate();
+                  }}
+                  disabled={pending}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:text-foreground transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <X size={14} /> {reject.isPending ? "반려 중…" : "신고 반려"}
+                </button>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  블라인드 없이 이 신고만 기각합니다. 게시글은 그대로 노출됩니다.
+                </p>
+              </div>
+            )}
+
+            {error && <p className="text-xs text-destructive border-t border-border pt-4">{error}</p>}
+
+            {post.status !== "ACTIVE" && report?.reportStatus !== "PENDING" && (
               <p className="text-xs text-muted-foreground border-t border-border pt-4">
-                {post.status === "BLINDED" ? "이미 블라인드 처리된 게시글입니다." : "삭제된 게시글입니다."}
+                이미 처리된 신고입니다. 추가 조치가 없습니다.
               </p>
             )}
           </div>
