@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Eye, Send, Edit3, Trash2, Flag, MessageCircle } from "lucide-react";
 import { POSTS, POST_COMMENTS } from "../../data/posts";
+import { deletePost as deletePostApi } from "../../api/post";
 import useAuthStore from "../../store/authStore";
 import type { PostComment, PostCategory } from "../../types";
 
@@ -48,11 +49,18 @@ export default function PostDetailPage() {
 
   const onLoginRequest = () => navigate("/login");
 
-  // POSTS 배열에서 직접 제거(splice) 후 목록 페이지로 이동. 목록 페이지 진입 시 POSTS를 다시 필터링하므로 별도 리렌더 트리거는 불필요
-  const deletePost = () => {
-    const idx = POSTS.findIndex((p) => p.postId === post.postId);
-    if (idx !== -1) POSTS.splice(idx, 1);
-    navigate("/posts");
+  // 백엔드에 삭제 요청(POST /v1/posts/:postId/delete) 후, 로컬 POSTS 배열에서도 제거하고 목록 페이지로 이동한다.
+  // 목록 페이지 진입 시 POSTS를 다시 필터링하므로 별도 리렌더 트리거는 불필요
+  const deletePost = async () => {
+    if (!window.confirm("게시글을 삭제하시겠습니까?")) return;
+    try {
+      await deletePostApi(post.postId);
+      const idx = POSTS.findIndex((p) => p.postId === post.postId);
+      if (idx !== -1) POSTS.splice(idx, 1);
+      navigate("/posts");
+    } catch {
+      alert("게시글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    }
   };
 
   const submitComment = () => {
