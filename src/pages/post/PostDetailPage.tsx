@@ -1,9 +1,26 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Eye, Send, Edit3, Trash2, Flag, MessageCircle } from "lucide-react";
+import { ArrowLeft, Eye, Send, Edit3, Trash2, Flag, MessageCircle, Check } from "lucide-react";
 import { POSTS, POST_COMMENTS } from "../../data/posts";
+import { reportPost, type PostReportReason } from "../../api/post";
+import { getApiErrorMessage } from "../../lib/apiError";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../../components/common/dialog";
 import useAuthStore from "../../store/authStore";
 import type { PostComment, PostCategory } from "../../types";
+
+const REPORT_REASONS: { value: PostReportReason; label: string }[] = [
+  { value: "SPAM", label: "스팸/광고" },
+  { value: "INAPPROPRIATE", label: "부적절한 내용" },
+  { value: "ILLEGAL", label: "불법 정보" },
+  { value: "ETC", label: "기타" },
+];
 
 const CATEGORY_LABELS: Record<PostCategory, string> = {
   GENERAL: "일반",
@@ -34,6 +51,7 @@ export default function PostDetailPage() {
   const [input, setInput] = useState(""); // 새 댓글 입력값
   const [editId, setEditId] = useState<number | null>(null); // 현재 수정 중인 댓글 id (없으면 null)
   const [editText, setEditText] = useState(""); // 수정 중인 댓글의 입력값
+  const [reportOpen, setReportOpen] = useState(false); // 신고 다이얼로그 열림 여부
 
   if (!post) {
     return (
@@ -132,12 +150,17 @@ export default function PostDetailPage() {
         {/* Report */}
         {user?.nickname !== post.writer && (
           <div className="flex justify-end">
-            <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors">
+            <button
+              onClick={() => (user ? setReportOpen(true) : onLoginRequest())}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
               <Flag size={12} /> 신고
             </button>
           </div>
         )}
       </div>
+
+      <ReportDialog postId={post.postId} open={reportOpen} onClose={() => setReportOpen(false)} />
 
       {/* Comments */}
       <div className="bg-card border border-border rounded-2xl p-6 sm:p-8">
@@ -231,5 +254,108 @@ export default function PostDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * 게시글 신고 다이얼로그. 사유(필수, 4종)와 상세 내용(선택)을 받아 신고를 접수한다.
+ * (POST /v1/posts/{postId}/report) 접수되면 성공 화면을 보여준 뒤 닫는다.
+ * 중복 신고(409) 등 백엔드 오류 메시지는 그대로 노출한다.
+ */
+function ReportDialog({ postId, open, onClose }: { postId: number; open: boolean; onClose: () => void }) {
+  const [reason, setReason] = useState<PostReportReason | null>(null);
+  const [description, setDescription] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null); // 접수 성공 메시지(있으면 완료 화면)
+
+  const report = useMutation({
+    mutationFn: () => reportPost(postId, reason as PostReportReason, description),
+    onSuccess: (res) => setDone(res.message),
+    onError: (err) => setError(getApiErrorMessage(err, "신고 접수에 실패했습니다.")),
+  });
+
+  // 닫을 때 입력·상태를 초기화해 다음에 다시 열면 깨끗한 폼이 되도록 한다.
+  const close = () => {
+    setReason(null);
+    setDescription("");
+    setError(null);
+    setDone(null);
+    report.reset();
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && close()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>게시글 신고</DialogTitle>
+          <DialogDescription>부적절한 게시글을 신고합니다. 신고 사유를 선택해 주세요.</DialogDescription>
+        </DialogHeader>
+
+        {done ? (
+          <div className="py-8 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
+              <Check size={24} />
+            </div>
+            <p className="text-sm text-foreground">{done}</p>
+            <button
+              onClick={close}
+              className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-all"
+            >
+              확인
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              {REPORT_REASONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setReason(value)}
+                  className={`px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+                    reason === value
+                      ? "border-destructive bg-destructive/5 text-destructive"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              maxLength={1000}
+              rows={3}
+              placeholder="상세 내용을 입력하세요 (선택, 최대 1000자)"
+              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-destructive/30 placeholder:text-muted-foreground resize-none"
+            />
+
+            {error && <p className="text-xs text-destructive">{error}</p>}
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={close}
+                disabled={report.isPending}
+                className="px-4 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground transition-all disabled:opacity-40"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  setError(null);
+                  report.mutate();
+                }}
+                disabled={report.isPending || reason === null}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-destructive text-white text-sm font-medium hover:bg-destructive/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Flag size={14} /> {report.isPending ? "접수 중…" : "신고하기"}
+              </button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
