@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tent, TrendingUp, Calendar, Star } from "lucide-react";
 import { CAMPS } from "../../data/camps";
-import { OWNER_RESERVATIONS } from "../../data/user";
 import {
   getReservationStats,
   type ReservationStats,
@@ -71,9 +70,7 @@ export default function BusinessHeader({ active }: { active: BusinessTab }) {
   const avgRating = myCamps.length
     ? (myCamps.reduce((s, c) => s + c.rating, 0) / myCamps.length).toFixed(1)
     : "—";
-  const pendingCount = OWNER_RESERVATIONS.filter(
-    (r) => r.status === "PENDING",
-  ).length;
+  const pendingCount = stats?.pendingCount ?? 0;
 
   return (
     <>
@@ -91,11 +88,9 @@ export default function BusinessHeader({ active }: { active: BusinessTab }) {
           </p>
         </div>
         <div className="flex gap-2">
-          {pendingCount > 0 && (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent/10 text-accent text-sm font-medium">
-              <Calendar size={14} /> 승인 대기 {pendingCount}건
-            </span>
-          )}
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent/10 text-accent text-sm font-medium">
+            <Calendar size={14} /> 승인 대기 {pendingCount}건
+          </span>
         </div>
       </div>
 
@@ -103,8 +98,10 @@ export default function BusinessHeader({ active }: { active: BusinessTab }) {
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
-            { label: "이번달 매출", value: `₩${stats.monthlyRevenue.toLocaleString()}`, sub: currentMonthLabel, color: "text-primary" },
-            { label: "이번달 예약", value: `${stats.monthlyReservations}건`, sub: currentMonthLabel, color: "text-foreground" },
+            // 매출·예약 건수는 백엔드가 체크인 날짜가 아닌 예약 생성일(createdAt) 기준으로 집계하므로
+            // "신규 예약" 기준임을 라벨에 드러낸다. (ReservationService.getReservationStats)
+            { label: "이번달 신규 예약 매출", value: `₩${stats.monthlyRevenue.toLocaleString()}`, sub: `${currentMonthLabel} 신청 기준`, color: "text-primary" },
+            { label: "이번달 신규 예약", value: `${stats.monthlyReservations}건`, sub: `${currentMonthLabel} 신청 기준`, color: "text-foreground" },
             { label: "평균 평점", value: stats.averageRating ?? '-', sub: `보유 캠핑장 ${myCamps.length}곳`, color: "text-accent" },
             { label: "누적 예약", value: `${stats.yearlyReservations}건`, sub: "올해", color: "text-chart-3" },
           ].map((card) => (
