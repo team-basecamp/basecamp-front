@@ -18,7 +18,7 @@ import MapPage from "../pages/map/MapPage";
 import CampsiteListPage from "../pages/campsite/CampsiteListPage";
 import CampsiteDetailPage from "../pages/campsite/CampsiteDetailPage";
 import ReviewsPage from "../pages/campsite/ReviewsPage";
-import ReviewDetailPage from "../pages/campsite/ReviewDetailPage";
+//import ReviewDetailPage from "../pages/campsite/ReviewDetailPage"; // 리뷰의 댓글 기능이 필요 없으므로 일단 주석 처리
 import ReservationPage from "../pages/reservation/ReservationPage";
 import ReservationHistoryPage from "../pages/reservation/ReservationHistoryPage";
 import PaymentPage from "../pages/payment/PaymentPage";
@@ -58,11 +58,14 @@ const router = createBrowserRouter([
       { path: "map", element: <MapPage /> },
       { path: "campsites", element: <CampsiteListPage /> },
       { path: "campsites/:contentId", element: <CampsiteDetailPage /> },
-      { path: "campsites/:campsiteId/reservation", element: <ReservationPage /> },
+      {
+        path: "campsites/:campsiteId/reservation",
+        element: <ReservationPage />,
+      },
       { path: "reservations", element: <ReservationHistoryPage /> },
       { path: "payment", element: <PaymentPage /> },
       { path: "reviews", element: <ReviewsPage /> },
-      { path: "reviews/:reviewId", element: <ReviewDetailPage /> },
+      //{ path: "reviews/:reviewId", element: <ReviewDetailPage /> },
       { path: "posts", element: <PostListPage /> },
       { path: "posts/new", element: <PostFormPage /> },
       { path: "posts/:postId", element: <PostDetailPage /> },
