@@ -120,20 +120,27 @@ export interface Reservation {
 }
 
 // ─── Notification ────────────────────────────────────────────────
+// 백엔드 NotificationType(enum)과 1:1. 새 종류를 추가하면 백엔드 enum도 함께 늘려야 한다.
 export type NotificationType =
   | "RESERVATION_CONFIRMED"
   | "RESERVATION_REJECTED"
-  | "RESERVATION_CANCELLED"
-  | "REVIEW_COMMENT"
-  | "POST_COMMENT";
+  | "RESERVATION_D1"
+  | "CAMP_OWNER_APPROVED"
+  | "CAMP_OWNER_REJECTED";
 
+/** 알림이 가리키는 대상 종류. targetId와 짝을 이뤄 "어떤 리소스에 대한 알림인가"를 나타낸다. */
+export type NotificationTargetType = "RESERVATION" | "CAMP_OWNER_APPLICATION";
+
+/** 백엔드 NotificationResponse(record)와 1:1 매핑. 목록 조회와 SSE push가 같은 형태를 쓴다. */
 export interface Notification {
-  notificationId: number;
+  id: number;
   type: NotificationType;
   message: string;
+  targetType: NotificationTargetType;
+  /** 대상 엔티티 id. targetType이 RESERVATION이면 reservationId, CAMP_OWNER_APPLICATION이면 applicationId. */
+  targetId: number;
   isRead: boolean;
   createdAt: string;
-  refId?: number;           // 알림이 가리키는 대상의 id (ERD의 notifications.ref_id) - 예약/게시글/리뷰 id 등, type에 따라 의미가 다름
 }
 
 // ─── Wishlist ────────────────────────────────────────────────────

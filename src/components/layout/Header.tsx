@@ -2,8 +2,9 @@
  * 상단 네비게이션 바 (모든 화면 공통, Layout.tsx에서 렌더링)
  * - 로그인 상태(authStore)에 따라 로그인 버튼 / 프로필 드롭다운을 다르게 보여줌
  * - 알림 뱃지 숫자는 notificationStore의 unreadCount를 그대로 구독해서 표시
+ *   (Header는 모든 화면에 떠 있으므로, 로그인 상태가 되면 여기서 안읽은 개수를 한 번 받아온다)
  */
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Bell, LogOut, Menu, X, User, ChevronDown, Tent } from "lucide-react";
 import useLogout from "../../hooks/useLogout";
@@ -118,6 +119,14 @@ export default function Header() {
   const role = useRole();
   const logout = useLogout();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const fetchUnreadCount = useNotificationStore((s) => s.fetchUnreadCount);
+
+  // 로그인 상태가 되면 뱃지 숫자를 받아온다. 실패해도 뱃지가 0으로 남을 뿐이라 조용히 넘긴다
+  // (헤더는 모든 화면에 떠 있어서, 여기서 에러를 띄우면 관계없는 화면까지 오염된다).
+  useEffect(() => {
+    if (!user) return;
+    fetchUnreadCount().catch(() => {});
+  }, [user, fetchUnreadCount]);
 
   const isActive = (to: string) => location.pathname.startsWith(to);
 
