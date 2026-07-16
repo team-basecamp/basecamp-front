@@ -6,6 +6,8 @@ import { CAMPS } from "../data/camps";
 import { getHotCampsites, getCampsites } from "../api/campsite";
 import type { Camp } from "../types";
 import "./HomePage.css";
+import RegionWeatherWidget from "../components/common/RegionWeatherWidget";
+
 
 const QUICK_TAGS = ["강원 숲속", "제주 힐링", "가평 계곡", "글램핑", "오션뷰", "반려동물"];
 
@@ -50,7 +52,6 @@ export default function HomePage() {
   const onSearch = (q: string) => navigate(`/campsites?q=${encodeURIComponent(q)}`);
   const onCategoryClick = (induty: string) => navigate(`/campsites?induty=${encodeURIComponent(induty)}`);
   const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.campId}`);
-  const onLoginClick = () => navigate("/login");
 
   return (
     <div>
@@ -220,31 +221,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── CTA Banner ── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16">
-        <div
-          className="relative rounded-3xl overflow-hidden p-12 text-white text-center"
-          style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1A4033 100%)" }}
-        >
-          <div className="absolute inset-0 opacity-10"
-            style={{ backgroundImage: "url('https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=1200&h=400&fit=crop&auto=format')", backgroundSize: "cover", backgroundPosition: "center" }}
-          />
-          <div className="relative">
-            <h2 className="text-3xl font-bold mb-3" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              나만의 캠핑 후기를 공유하세요
-            </h2>
-            <p className="text-white/70 mb-8 max-w-md mx-auto text-sm">
-              직접 다녀온 캠핑장 후기를 남기고 다른 캠퍼들과 정보를 공유하세요
-            </p>
-            <button
-              onClick={onLoginClick}
-              className="px-8 py-3 rounded-xl bg-white text-primary font-bold text-sm hover:bg-white/90 transition-all"
-            >
-              무료로 시작하기
-            </button>
-          </div>
-        </div>
-      </section>
+      {/* ── 지역별 오늘 날씨 ── */}
+      <RegionWeatherWidget />
     </div>
   );
 }

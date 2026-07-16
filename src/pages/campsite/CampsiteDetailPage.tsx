@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";                    // ✅ 추가
 import {
   ArrowLeft, MapPin, Heart, Phone, Globe, Users,
   CheckCircle, Droplets, Wind, TreePine, Calendar, Plus, Minus,
@@ -8,8 +9,9 @@ import {
 import StarRow from "../../components/common/StarRow";
 import { CAMPS } from "../../data/camps";
 import { INITIAL_REVIEWS } from "../../data/reviews";
-import { getWeatherPreview } from "../../data/weather";
 import { getCampsiteDetail } from "../../api/campsite";
+import { getCampWeather } from "../../api/weather";                  // ✅ 추가
+import { getWeatherEmoji } from "../../lib/weatherIcon";             // ✅ 추가
 import useAuthStore from "../../store/authStore";
 import useWishlistStore from "../../store/wishlistStore";
 import type { Camp, Review } from "../../types";
@@ -88,6 +90,17 @@ export default function CampsiteDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 훅은 렌더마다 같은 순서·같은 개수로 호출돼야 하므로 early return 위에 둔다.
+  // camp 가 아직 없을 수 있어 옵셔널 체이닝으로 접근하고, 실제 호출 시점은 enabled 로 제어한다.
+  // 자체 등록 캠핑장은 contentId 가 null 이므로 PK(campId) 를 우선 사용한다.
+  const campId = camp?.campId ?? camp?.contentId;
+  const { data: campWeather } = useQuery({
+    queryKey: ["campWeather", campId, checkIn, checkOut],
+    queryFn: () => getCampWeather(campId!, checkIn, checkOut),
+    enabled: !!campId && !!checkIn && !!checkOut,   // 날짜를 골라야 호출한다
+    staleTime: 1000 * 60 * 10,                      // 백엔드 캐시(10분)와 맞춘다
+  });
+
   if (!camp) {
     return (
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
@@ -103,7 +116,7 @@ export default function CampsiteDetailPage() {
     );
   }
 
-  const weatherDays = getWeatherPreview(camp.contentId, checkIn, checkOut);
+  const weatherDays = campWeather?.weather ?? [];
 
   // 백엔드 @Future 검증 때문에 오늘은 선택 불가
   const tomorrow = addDay(toDateStr(new Date()));
@@ -129,7 +142,7 @@ export default function CampsiteDetailPage() {
     } else {
       setCampReviews((prev) => [
         {
-          id: Date.now(), campId: camp.contentId,
+          id: Date.now(), campId: campId!,
           author: user!.nickname, avatar: user!.nickname[0],
           rating: newReview.rating, date: new Date().toISOString().slice(0, 10),
           content: newReview.content, images: newReview.images, likes: 0, comments: [],
@@ -203,10 +216,14 @@ export default function CampsiteDetailPage() {
           {/* Description */}
           <div className="bg-card border border-border rounded-2xl p-6">
             <h2 className="font-bold text-lg mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>캠핑장 소개</h2>
-            {camp.lineIntro && (
+            {/* 백엔드는 lineIntro 하나만 내려주며 그 값이 상세 소개 전문이다(고캠핑 API의 intro를 그대로 저장).
+                mock 데이터만 lineIntro(한줄 소개)와 intro(상세 소개)를 별도로 갖고 있어 둘 다 있을 때만 강조 줄을 보여준다. */}
+            {camp.intro && camp.lineIntro && (
               <p className="text-foreground text-sm font-medium mb-2">{camp.lineIntro}</p>
             )}
-            <p className="text-muted-foreground text-sm leading-relaxed mb-5">{camp.intro}</p>
+            <p className="text-muted-foreground text-sm leading-relaxed mb-5">
+              {camp.intro ?? camp.lineIntro ?? "등록된 소개가 없습니다."}
+            </p>
             <div className="grid grid-cols-2 gap-3 text-sm">
               {[
                 { icon: <Phone size={14} />, label: "전화번호", value: camp.tel },
@@ -244,16 +261,25 @@ export default function CampsiteDetailPage() {
                 {weatherDays.map((w) => (
                   <div key={w.date} className="bg-muted rounded-xl p-3 text-center">
                     <p className="text-xs text-muted-foreground mb-1">{w.date.slice(5)}</p>
-                    <p className="text-2xl mb-1">{w.icon}</p>
-                    <p className="font-bold text-sm" style={{ fontFamily: "'DM Mono', monospace" }}>{w.temp}°C</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{w.condition}</p>
-                    <p className="text-xs text-muted-foreground">습도 {w.humidity}%</p>
+                    {/* 백엔드는 이모지가 아니라 OpenWeatherMap 아이콘 코드("04d")를 준다. */}
+                    <p className="text-2xl mb-1">{getWeatherEmoji(w.icon)}</p>
+                    <p className="font-bold text-sm" style={{ fontFamily: "'DM Mono', monospace" }}>
+                      {w.temp !== null ? `${Math.round(w.temp)}°C` : "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{w.condition ?? "-"}</p>
+                    {w.humidity !== null && (
+                      <p className="text-xs text-muted-foreground">습도 {w.humidity}%</p>
+                    )}
                   </div>
                 ))}
               </div>
             ) : (
+              // 빈 배열은 두 가지 의미다: 날짜 미선택 / 예보 범위(5일) 밖.
+              // 날짜를 골랐는데 "날짜를 선택해주세요"가 뜨면 사용자가 혼란스럽다.
               <p className="text-sm text-muted-foreground py-4 text-center bg-muted rounded-xl">
-                오른쪽에서 체크인·체크아웃 날짜를 선택해주세요
+                {!checkIn || !checkOut
+                  ? "오른쪽에서 체크인·체크아웃 날짜를 선택해주세요"
+                  : "날씨 예보는 5일 이내 일정부터 제공됩니다"}
               </p>
             )}
           </div>
@@ -449,11 +475,11 @@ export default function CampsiteDetailPage() {
               예약하기
             </button>
             <button
-              onClick={() => { if (!user) { onLoginRequest(); return; } toggleWish(camp.contentId); }}
-              className={`w-full py-2 rounded-xl border text-sm flex items-center justify-center gap-1 transition-all ${isWished(camp.contentId) ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
+              onClick={() => { if (!user) { onLoginRequest(); return; } toggleWish(campId!); }}
+              className={`w-full py-2 rounded-xl border text-sm flex items-center justify-center gap-1 transition-all ${isWished(campId!) ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
             >
-              <Heart size={14} className={isWished(camp.contentId) ? "fill-primary" : ""} />
-              {isWished(camp.contentId) ? "찜 완료" : "찜하기"}
+              <Heart size={14} className={isWished(campId!) ? "fill-primary" : ""} />
+              {isWished(campId!) ? "찜 완료" : "찜하기"}
             </button>
 
             <div className="mt-4 pt-4 border-t border-border space-y-2 text-xs text-muted-foreground">

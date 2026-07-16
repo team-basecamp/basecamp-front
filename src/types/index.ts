@@ -163,12 +163,3 @@ export interface ChatMessage {
   text: string;
   time: string;
 }
-
-// ─── Weather ─────────────────────────────────────────────────────
-export interface WeatherDay {
-  date: string;
-  temp: number;
-  condition: string;
-  humidity: number;
-  icon: string;
-}

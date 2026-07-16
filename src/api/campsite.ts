@@ -1,5 +1,5 @@
 import instance from "./instance";
-import type { Camp, CampRegistrationRequest, WeatherDay } from "../types";
+import type { Camp, CampRegistrationRequest } from "../types";
 
 /**
  * 캠핑장(campsite) 관련 API 함수 모음 - 목록/검색/상세/인기 캠핑장, 날씨, 찜하기,
@@ -49,11 +49,6 @@ export const getCampsiteDetail = (campId: number) =>
 export const getHotCampsites = (sortBy: "rating" | "reservationCount" = "rating", numOfRows = 10, pageNo = 1) =>
   instance.get<{ resultCode: string; resultMsg: string; data: Camp[] }>("/v1/camps/hot", {
     params: { sortBy, numOfRows, pageNo },
-  });
-
-export const getCampsiteWeather = (contentId: number, checkInDate: string, checkOutDate: string) =>
-  instance.get<{ contentId: number; weather: WeatherDay[] }>(`/v1/camps/${contentId}/weather`, {
-    params: { checkInDate, checkOutDate },
   });
 
 export const toggleWish = (contentId: number) =>
