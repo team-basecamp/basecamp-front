@@ -49,7 +49,7 @@ export default function HomePage() {
 
   const onSearch = (q: string) => navigate(`/campsites?q=${encodeURIComponent(q)}`);
   const onCategoryClick = (induty: string) => navigate(`/campsites?induty=${encodeURIComponent(induty)}`);
-  const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.contentId}`);
+  const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.campId}`);
   const onLoginClick = () => navigate("/login");
 
   return (
@@ -150,9 +150,8 @@ export default function HomePage() {
                 <button
                   key={opt.key}
                   onClick={() => setHotSort(opt.key)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    hotSort === opt.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${hotSort === opt.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   {opt.label}
                 </button>
@@ -166,7 +165,7 @@ export default function HomePage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {hotCamps.map((camp) => (
-            <CampCard key={camp.contentId} camp={camp} onClick={() => onCampClick(camp)} />
+            <CampCard key={camp.campId} camp={camp} onClick={() => onCampClick(camp)} />
           ))}
         </div>
       </section>
@@ -216,7 +215,7 @@ export default function HomePage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {recentCamps.map((camp) => (
-            <CampCard key={camp.contentId} camp={camp} onClick={() => onCampClick(camp)} />
+            <CampCard key={camp.campId} camp={camp} onClick={() => onCampClick(camp)} />
           ))}
         </div>
       </section>
