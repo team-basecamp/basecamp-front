@@ -55,14 +55,15 @@ export interface CampRegistrationRequest {
 export interface Review {
   id: number;
   campId: number;
+  userId?: number;
   author: string;
   rating: number;
   content: string;
   date: string;
   avatar?: string;
   images: string[];
-  likes: number;
-  comments: Comment[];
+  //likes: number;
+  //comments: Comment[];
 }
 
 // ─── Comment ────────────────────────────────────────────────────
