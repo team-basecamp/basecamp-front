@@ -40,8 +40,6 @@ export const getMyWishlist = () =>
 export const getMyPosts = (pageNo = 1, numOfRows = 10) =>
   instance.get<{ posts: Post[] }>("/v1/members/me/posts", { params: { pageNo, numOfRows } });
 
-export const getMyNotifications = (pageNo = 1, numOfRows = 10) =>
-  instance.get("/v1/members/me/notifications", { params: { pageNo, numOfRows } });
-
-export const markNotificationRead = (notificationId: number) =>
-  instance.post(`/v1/members/me/notifications/${notificationId}/read`, { notificationId });
+// 알림 API 는 api/notification.ts 로 옮겼다.
+// 여기 있던 getMyNotifications / markNotificationRead 는 백엔드에 없는 /v1/members/me/notifications 를
+// 가리키던 미사용 코드라 제거했다. 실제 엔드포인트는 /v1/notifications 다.
