@@ -59,7 +59,8 @@ export interface ReservationStats {
   monthlyRevenue: number;
   monthlyReservations: number;
   yearlyReservations: number;
-  averageRating: number | null; // TODO: 리뷰 도메인 미구현 — null
+  pendingCount: number;
+  averageRating: number | null;
 }
 
 /** MonthlyRevenueResponse.java - 월별 대시보드 예약 통계*/
