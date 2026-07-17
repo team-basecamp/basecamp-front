@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Calendar, Heart, FileText, LogOut, Pencil } from "lucide-react";
+import { Bell, Calendar, Heart, FileText, LogOut, Pencil, Star } from "lucide-react";
 import { POSTS } from "../../data/posts";
 import useLogout from "../../hooks/useLogout";
 import useAuthStore from "../../store/authStore";
@@ -17,12 +17,13 @@ import {
  * - MyPage, WishlistPage, MyPostsPage, NotificationPage 등 마이페이지 하위 화면들이 공통으로 사용
  * - active prop으로 현재 탭을 표시하고, 탭 클릭 시 TAB_ROUTES 매핑에 따라 각 페이지로 이동
  */
-export type MyTab = "reservations" | "wishlist" | "posts" | "notifications";
+export type MyTab = "reservations" | "wishlist" | "posts" | "reviews" | "notifications";
 
 const TAB_ROUTES: Record<MyTab, string> = {
   reservations: "/reservations",
   wishlist: "/mypage/wishlist",
   posts: "/mypage/posts",
+  reviews: "/mypage/reviews",
   notifications: "/notifications",
 };
 
@@ -48,6 +49,7 @@ export default function MyPageHeader({ active }: { active: MyTab }) {
     { key: "reservations", label: "예약 내역", icon: <Calendar size={15} />, badge: reservations.filter((r) => ["PENDING", "PENDING_PAYMENT"].includes(r.status)).length },
     { key: "wishlist", label: "찜한 캠핑장", icon: <Heart size={15} /> },
     { key: "posts", label: "내 게시글", icon: <FileText size={15} /> },
+    { key: "reviews", label: "내 리뷰", icon: <Star size={15} /> },
     { key: "notifications", label: "알림", icon: <Bell size={15} />, badge: unreadCount },
   ];
 
