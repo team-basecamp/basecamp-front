@@ -1,11 +1,11 @@
 import instance from "./instance";
 import type { Post } from "../types";
-import type { WishCamp } from "../types";
 
 /**
  * 회원(member) 관련 API 함수 모음 - 내 프로필/위시리스트/작성글/알림 조회.
  * - 내 프로필(조회/수정)은 백엔드 UserController 계약을 따른다: GET /v1/users/me, POST /v1/users/me(수정).
- * - 위시리스트/작성글/알림은 아직 백엔드 미구현이라 pages/mypage/*가 store/data mock 을 그대로 사용 중.
+ * - 위시리스트는 api/campsite.ts + hooks/useWishlist 로 옮겨 백엔드와 연동했다.
+ * - 작성글/알림은 아직 백엔드 미구현이라 pages/mypage/*가 store/data mock 을 그대로 사용 중.
  *   실제 백엔드 연동 시 여기 함수들을 TanStack Query로 교체하면 됨.
  * - instance 의 응답 인터셉터가 res.data 로 언래핑하므로, 각 함수의 실제 resolve 값은 제네릭 타입 그대로다.
  */
@@ -34,8 +34,8 @@ export const getMyProfile = () =>
 export const updateMyProfile = (body: UpdateProfileRequest) =>
   instance.post<MyProfile>("/v1/users/me", body) as unknown as Promise<MyProfile>;
 
-export const getMyWishlist = () =>
-  instance.get<{ wishlist: WishCamp[] }>("/v1/members/me/wishlist");
+// 찜 목록은 api/campsite.ts 의 getMyWishlists(GET /v1/wishlists/me)를 쓴다.
+// 여기 있던 getMyWishlist 는 백엔드에 없는 /v1/members/me/wishlist 를 부르고 있어 제거했다.
 
 export const getMyPosts = (pageNo = 1, numOfRows = 10) =>
   instance.get<{ posts: Post[] }>("/v1/members/me/posts", { params: { pageNo, numOfRows } });

@@ -1,13 +1,14 @@
 /**
  * 캠핑장 목록/검색 결과에서 쓰이는 캠핑장 카드
- * - 카드 우측 상단 하트 버튼은 wishlistStore와 연동되어 있어서, 이 카드에서 찜을 누르면
+ * - 카드 우측 상단 하트 버튼은 useWishlist(서버 상태)와 연동되어 있어서, 이 카드에서 찜을 누르면
  *   찜목록 페이지/상세 페이지 등 다른 화면에서도 동일하게 찜 상태가 반영됨
  * - 비로그인 상태에서 하트를 누르면 찜 대신 로그인 페이지로 이동시킴
  */
 import { useNavigate } from "react-router-dom";
 import { MapPin, Heart, Star } from "lucide-react";
 import useAuthStore from "../../store/authStore";
-import useWishlistStore from "../../store/wishlistStore";
+import { useWishlist } from "../../hooks/useWishlist";
+import { campKey } from "../../lib/camp";
 import type { Camp } from "../../types";
 import "./CampCard.css";
 
@@ -26,14 +27,15 @@ function indutyBadge(induty: string): string {
 export default function CampCard({ camp, onClick }: CampCardProps) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const liked = useWishlistStore((s) => s.isWished(camp.contentId));
-  const toggleWish = useWishlistStore((s) => s.toggleWish);
+  const { isWished, toggleWish, isPending } = useWishlist();
+  const campId = campKey(camp);
+  const liked = isWished(campId);
   const image = camp.firstImageUrl || camp.image || "";
 
   const handleLikeClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!user) { navigate("/login"); return; }
-    toggleWish(camp.contentId);
+    toggleWish(campId);
   };
 
   return (
@@ -48,7 +50,10 @@ export default function CampCard({ camp, onClick }: CampCardProps) {
 
         <button
           onClick={handleLikeClick}
-          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 backdrop-blur flex items-center justify-center hover:bg-white transition-all shadow-sm"
+          disabled={isPending}
+          aria-label={liked ? "찜 해제" : "찜하기"}
+          aria-pressed={liked}
+          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 backdrop-blur flex items-center justify-center hover:bg-white transition-all shadow-sm disabled:opacity-60"
         >
           <Heart size={14} className={liked ? "fill-destructive text-destructive" : "text-foreground/60"} />
         </button>

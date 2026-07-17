@@ -6,7 +6,7 @@ import useLogout from "../../hooks/useLogout";
 import useAuthStore from "../../store/authStore";
 import useNotificationStore from "../../store/notificationStore";
 //import useReservationStore from "../../store/reservationStore";
-import useWishlistStore from "../../store/wishlistStore";
+import { useWishlist } from "../../hooks/useWishlist";
 import {
   getMyReservations,
   type ReservationListResponse,
@@ -31,7 +31,6 @@ export default function MyPageHeader({ active }: { active: MyTab }) {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
-  // reservationStore/wishlistStore(zustand)를 사용해 다른 페이지로 이동해도(예: 예약내역 -> 마이페이지) 예약/찜 개수가 그대로 유지되도록 함
   const [reservations, setReservations] = useState<ReservationListResponse[]>([]);
   useEffect(() => {
   getMyReservations({ page: 0, size: 50 })
@@ -41,7 +40,7 @@ export default function MyPageHeader({ active }: { active: MyTab }) {
     });
   }, []);
   
-  const wishedIds = useWishlistStore((s) => s.wishedIds);
+  const { wishlists } = useWishlist();
   const myPosts = POSTS.filter((p) => p.writer === user?.nickname);
 
   const TABS: { key: MyTab; label: string; icon: ReactNode; badge?: number }[] = [
@@ -65,7 +64,7 @@ export default function MyPageHeader({ active }: { active: MyTab }) {
           <div className="text-sm text-muted-foreground mt-0.5">{user.email ?? `${user.nickname.toLowerCase().replace(/\s/g, "")}@email.com`}</div>
           <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
             <span>예약 {reservations.length}건</span>
-            <span>찜 {wishedIds.size}개</span>
+            <span>찜 {wishlists.length}개</span>
             <span>게시글 {myPosts.length}개</span>
           </div>
         </div>

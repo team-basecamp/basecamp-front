@@ -29,6 +29,21 @@ export interface CampListEnvelope {
   totalCount: number;
 }
 
+/** 찜 토글 응답 (WishlistToggleResponse) */
+export interface WishlistToggleResponse {
+  campId: number;
+  wished: boolean;
+}
+
+/** 내 찜 목록 항목 (WishlistResponse) */
+export interface WishlistItem {
+  campId: number;
+  facltNm: string;
+  addr1: string;
+  firstImageUrl: string;
+  createdAt: string;
+}
+
 // 키워드/지역/유형/최대금액 필터 + 정렬 + 페이징을 조합한 캠핑장 검색(=목록 조회)
 export const getCampsites = (params: GetCampsitesParams = {}) =>
   instance.get<{ resultCode: string; resultMsg: string; data: Camp[]; totalCount: number }>(
@@ -50,10 +65,18 @@ export const getCampsiteWeather = (contentId: number, checkInDate: string, check
     params: { checkInDate, checkOutDate },
   });
 
-export const toggleWish = (contentId: number) =>
-  instance.post<{ contentId: number; wished: boolean; message: string }>(`/v1/camps/${contentId}/wish`, {
-    contentId,
-  });
+// 찜 토글 (POST /v1/camps/{campId}/wishlist)
+// 이미 찜한 캠핑장이면 해제하고 아니면 등록한다. 결과 상태는 응답의 wished 로 내려온다.
+// 회원 식별은 서버가 JWT 에서 하므로 요청 본문이 없다.
+export const toggleWish = (campId: number) =>
+  instance.post<WishlistToggleResponse>(
+    `/v1/camps/${campId}/wishlist`,
+    undefined
+  ) as unknown as Promise<WishlistToggleResponse>;
+
+// 내 찜 목록 (GET /v1/wishlists/me) - 최신 찜 순
+export const getMyWishlists = () =>
+  instance.get<WishlistItem[]>("/v1/wishlists/me") as unknown as Promise<WishlistItem[]>;
 
 // 캠핑업체 전용
 // 등록 직후 응답의 contentId는 항상 null (고캠핑 공공API 연동 캠핑장이 아니므로 자체 발급된 camp_id만 존재)

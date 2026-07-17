@@ -1,12 +1,10 @@
-import type { Camp, WishCamp } from "../types";
+import type { Camp } from "../types";
 
 /**
  * 캠핑장 mock 데이터.
  * - CAMPS: pages/HomePage, pages/campsite/CampsiteListPage, CampsiteDetailPage,
  *   pages/map/MapPage, pages/business/* 등 캠핑장이 노출되는 거의 모든 화면에서 사용.
  * - HOT_CAMPS: CAMPS를 평점순으로 정렬해 상위 4개만 뽑은 파생 데이터 (홈 화면 인기 캠핑장 섹션용).
- * - WISHLIST_CAMPS: CAMPS 앞 3개를 찜 목록 형태로 가공한 것으로,
- *   store/wishlistStore.ts의 초기 상태(wishedIds)로만 사용됨.
  * - REGIONS/INDUTY_TYPES/TAGS_FILTER: 캠핑장 목록/검색 화면의 필터 옵션 목록.
  */
 export const CAMPS: Camp[] = [
@@ -250,14 +248,6 @@ export const CAMPS: Camp[] = [
 ];
 
 export const HOT_CAMPS = [...CAMPS].sort((a, b) => b.rating - a.rating).slice(0, 4);
-
-export const WISHLIST_CAMPS: WishCamp[] = CAMPS.slice(0, 3).map((c) => ({
-  contentId: c.contentId,
-  facltNm: c.facltNm,
-  addr1: c.addr1,
-  firstImageUrl: c.firstImageUrl,
-  rating: c.rating,
-}));
 
 export const REGIONS = ["전체", "강원", "경기", "경남", "충남", "제주", "전남", "경북"];
 
