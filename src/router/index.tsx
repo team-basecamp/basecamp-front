@@ -29,6 +29,7 @@ import MyPage from "../pages/mypage/MyPage";
 import ProfileEditPage from "../pages/mypage/ProfileEditPage";
 import WishlistPage from "../pages/mypage/WishlistPage";
 import MyPostsPage from "../pages/mypage/MyPostsPage";
+import MyReviewsPage from "../pages/mypage/MyReviewsPage";
 import WithdrawPage from "../pages/mypage/WithdrawPage";
 import CampOwnerApplyPage from "../pages/mypage/CampOwnerApplyPage";
 import NotificationPage from "../pages/notification/NotificationPage";
@@ -74,6 +75,7 @@ const router = createBrowserRouter([
       { path: "mypage/profile", element: <ProfileEditPage /> },
       { path: "mypage/wishlist", element: <WishlistPage /> },
       { path: "mypage/posts", element: <MyPostsPage /> },
+      { path: "mypage/reviews", element: <MyReviewsPage /> },
       { path: "mypage/withdraw", element: <WithdrawPage /> },
       { path: "mypage/camp-owner", element: <CampOwnerApplyPage /> },
       { path: "notifications", element: <NotificationPage /> },
