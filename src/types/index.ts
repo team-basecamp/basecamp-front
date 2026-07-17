@@ -78,7 +78,8 @@ export interface Comment {
 }
 
 // ─── Community Post ─────────────────────────────────────────────
-export type PostCategory = "GENERAL" | "CREW" | "TRANSFER";
+/** 백엔드 PostCategory(enum)와 문자열이 정확히 일치해야 한다. posts.category 컬럼에 그대로 저장된다. */
+export type PostCategory = "GENERAL" | "CAMP_MATE" | "RESERVATION_TRANSFER";
 
 export interface Post {
   postId: number;
