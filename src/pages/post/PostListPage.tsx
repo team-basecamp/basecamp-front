@@ -1,23 +1,25 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { Eye, MessageCircle, Plus, Flag } from "lucide-react";
-import { POSTS } from "../../data/posts";
+import { Eye, MessageCircle, Plus } from "lucide-react";
+import { getPosts, type PostListItem } from "../../api/post";
+import { getApiErrorMessage } from "../../lib/apiError";
 import useAuthStore from "../../store/authStore";
-import type { Post, PostCategory } from "../../types";
+import type { PostCategory } from "../../types";
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
 const CATEGORY_LABELS: Record<PostCategory | "ALL", string> = {
   ALL: "전체",
   GENERAL: "일반",
-  CREW: "캠우 모집",
-  TRANSFER: "예약 양도",
+  CAMP_MATE: "캠우 모집",
+  RESERVATION_TRANSFER: "예약 양도",
 };
 
 const CATEGORY_COLORS: Record<PostCategory, string> = {
   GENERAL: "bg-secondary text-primary",
-  CREW: "bg-accent/10 text-accent",
-  TRANSFER: "bg-chart-3/10 text-chart-3",
+  CAMP_MATE: "bg-accent/10 text-accent",
+  RESERVATION_TRANSFER: "bg-chart-3/10 text-chart-3",
 };
 
 function timeAgo(dateStr: string): string {
@@ -30,44 +32,52 @@ function timeAgo(dateStr: string): string {
 
 /**
  * 커뮤니티 게시글 목록 (/posts)
- * - 카테고리(전체/일반/캠우 모집/예약 양도)별로 게시글을 필터링해서 보여줌
- * - 스크롤 하단에 도달하면 IntersectionObserver로 감지해 목록을 추가 로드하는 무한 스크롤 방식
+ * - 카테고리(전체/일반/캠우 모집/예약 양도)별로 GET /v1/posts 를 호출해 최신순으로 보여줌
+ * - 커서 페이징: 응답의 nextCursor 를 다음 요청의 cursor 로 그대로 실어 보낸다(서버가 만든 불투명 값).
+ *   스크롤 하단에 도달하면 IntersectionObserver로 감지해 다음 페이지를 요청하는 무한 스크롤 방식
  */
 export default function PostListPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [activeCategory, setActiveCategory] = useState<PostCategory | "ALL">("ALL");
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE); // 현재까지 화면에 보여줄 개수 (무한 스크롤 페이지네이션)
-  const [loading, setLoading] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null); // 무한 스크롤 감지를 위한 관찰 대상(목록 맨 아래 빈 div)
 
-  const onPostClick = (post: Post) => navigate(`/posts/${post.postId}`);
+  const onPostClick = (post: PostListItem) => navigate(`/posts/${post.postId}`);
   const onWriteClick = () => navigate("/posts/new");
   const onLoginRequest = () => navigate("/login");
 
-  const filtered = activeCategory === "ALL"
-    ? POSTS
-    : POSTS.filter((p) => p.category === activeCategory);
-  const visible = filtered.slice(0, visibleCount);
-  const hasMore = visibleCount < filtered.length;
+  const {
+    data,
+    error,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["posts", activeCategory],
+    // 첫 페이지는 커서 없이 요청한다.
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) =>
+      getPosts({ category: activeCategory, cursor: pageParam, size: PAGE_SIZE }),
+    // hasNext 가 false 면 nextCursor 는 null 이고, undefined 를 반환해야 더 이상 요청하지 않는다.
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
 
-  useEffect(() => setVisibleCount(PAGE_SIZE), [activeCategory]);
+  const posts = data?.pages.flatMap((page) => page.content) ?? [];
 
-  // setTimeout으로 네트워크 요청을 흉내낸 mock 로딩 (실제 API 연동 시 서버 페이지네이션 호출로 교체)
-  const loadMore = useCallback(() => {
-    if (loading || !hasMore) return;
-    setLoading(true);
-    setTimeout(() => { setVisibleCount((n) => n + PAGE_SIZE); setLoading(false); }, 600);
-  }, [loading, hasMore]);
-
-  // sentinel(빈 div)이 화면에 보이는 순간(스크롤이 바닥에 닿는 순간) loadMore 실행
+  // sentinel(빈 div)이 화면에 보이는 순간(스크롤이 바닥에 닿는 순간) 다음 페이지 요청
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
-    const obs = new IntersectionObserver((e) => { if (e[0].isIntersecting) loadMore(); }, { threshold: 0.1 });
+    const obs = new IntersectionObserver(
+      (e) => {
+        if (e[0].isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage();
+      },
+      { threshold: 0.1 }
+    );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [loadMore]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
@@ -87,7 +97,7 @@ export default function PostListPage() {
 
       {/* Category tabs */}
       <div className="flex gap-2 mb-6 border-b border-border pb-4">
-        {(["ALL", "GENERAL", "CREW", "TRANSFER"] as const).map((cat) => (
+        {(["ALL", "GENERAL", "CAMP_MATE", "RESERVATION_TRANSFER"] as const).map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
@@ -104,16 +114,16 @@ export default function PostListPage() {
 
       {/* Post list */}
       <div className="space-y-3">
-        {visible.map((post) => (
+        {posts.map((post) => (
           <div
             key={post.postId}
             onClick={() => onPostClick(post)}
             className="bg-card border border-border rounded-2xl p-5 cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all group"
           >
             <div className="flex items-start gap-3">
-              {/* Avatar */}
+              {/* Avatar (목록 응답에 프로필 사진이 없어 닉네임 첫 글자로 대체) */}
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                {post.avatar}
+                {post.nickname[0]}
               </div>
 
               <div className="flex-1 min-w-0">
@@ -122,7 +132,7 @@ export default function PostListPage() {
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[post.category]}`}>
                     {CATEGORY_LABELS[post.category]}
                   </span>
-                  <span className="text-xs text-muted-foreground">{post.writer}</span>
+                  <span className="text-xs text-muted-foreground">{post.nickname}</span>
                   <span className="text-xs text-muted-foreground">·</span>
                   <span className="text-xs text-muted-foreground">{timeAgo(post.createdAt)}</span>
                 </div>
@@ -132,18 +142,10 @@ export default function PostListPage() {
                   {post.title}
                 </h3>
 
-                {/* Preview */}
-                <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                  {post.content}
-                </p>
-
                 {/* Engagement */}
                 <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><Eye size={11} />{post.viewCount.toLocaleString()}</span>
                   <span className="flex items-center gap-1"><MessageCircle size={11} />{post.commentCount}</span>
-                  <span className="ml-auto flex items-center gap-1 text-muted-foreground/60">
-                    <Flag size={10} />
-                  </span>
                 </div>
               </div>
             </div>
@@ -153,15 +155,20 @@ export default function PostListPage() {
 
       {/* Sentinel + loading */}
       <div ref={sentinelRef} className="h-1 mt-4" />
-      {loading && (
+      {(isLoading || isFetchingNextPage) && (
         <div className="flex justify-center py-6">
           <div className="w-6 h-6 border-2 border-border border-t-primary rounded-full animate-spin" />
         </div>
       )}
-      {!hasMore && visible.length > 0 && (
-        <p className="text-center text-xs text-muted-foreground py-6">모든 게시글을 불러왔습니다 ({filtered.length}개)</p>
+      {error && (
+        <p className="text-center text-sm text-destructive py-6">
+          {getApiErrorMessage(error, "게시글을 불러오지 못했습니다.")}
+        </p>
       )}
-      {visible.length === 0 && (
+      {!hasNextPage && posts.length > 0 && (
+        <p className="text-center text-xs text-muted-foreground py-6">모든 게시글을 불러왔습니다 ({posts.length}개)</p>
+      )}
+      {!isLoading && !error && posts.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <MessageCircle size={40} className="mx-auto mb-3 opacity-20" />
           <p className="text-sm">게시글이 없습니다. 첫 글을 작성해보세요!</p>
