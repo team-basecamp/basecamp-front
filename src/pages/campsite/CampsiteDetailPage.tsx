@@ -43,7 +43,9 @@ const addDay = (dateStr: string) => {
 
 /**
  * 백엔드 ReviewResponse → 화면용 Review 어댑터.
- * - images는 백엔드 리뷰 도메인에 아직 없어 기본값으로 채운다. (차후 구현)
+ * - images 에는 서버가 준 **상대경로**(/images/abc.jpg)를 그대로 담는다. 절대 URL로 바꾸지 않는 이유는
+ *   수정 시 keepImageUrls 로 이 값을 그대로 돌려보내야 하기 때문이다(가공하면 서버가 400으로 막는다).
+ *   화면에 그릴 때만 reviewApi.toImageSrc() 로 감싼다.
  * - userId 는 소유권 판별용으로 실어둔다. (Review 타입에 userId?: number 추가 필요)
  */
 const toReview = (r: ReviewResponse): Review => ({
@@ -55,8 +57,22 @@ const toReview = (r: ReviewResponse): Review => ({
   rating: r.rating,
   date: (r.createdAt ?? "").slice(0, 10),
   content: r.content,
-  images: [],
+  images: r.imageUrls ?? [],
 });
+
+/**
+ * 리뷰 폼이 들고 있는 이미지 한 장.
+ * 서버에 이미 있는 것과 이번에 새로 고른 파일은 전송 방식이 달라 반드시 구분해야 한다.
+ * - existing : 서버 상대경로. 수정 요청의 keepImageUrls 로 나간다.
+ * - new      : 실제 File. multipart 의 images 파트로 나간다. previewUrl 은 미리보기 전용 blob URL.
+ */
+type ReviewImageItem =
+  | { kind: "existing"; url: string }
+  | { kind: "new"; file: File; previewUrl: string };
+
+/** 미리보기에 쓸 src. 기존 이미지는 절대 URL로, 새 파일은 blob URL 그대로. */
+const previewSrcOf = (item: ReviewImageItem): string =>
+  item.kind === "existing" ? reviewApi.toImageSrc(item.url) : item.previewUrl;
 
 /**
  * 캠핑장 상세 페이지 (/campsites/:contentId)
@@ -119,7 +135,7 @@ export default function CampsiteDetailPage() {
   const [newReview, setNewReview] = useState<{
     rating: number;
     content: string;
-    images: string[];
+    images: ReviewImageItem[];
   }>({
     rating: 5,
     content: "",
@@ -247,28 +263,53 @@ export default function CampsiteDetailPage() {
 
   // 신규 작성/수정을 하나의 폼으로 처리: editId가 있으면 update, 없으면 create.
   // 저장 후에는 서버 목록을 다시 불러와 id·작성자·시간 등 확정값으로 재동기화한다.
+  // 폼을 비우면서 새 파일 미리보기로 만든 blob URL을 해제한다.
+  // (revoke 하지 않으면 페이지를 벗어날 때까지 브라우저가 파일을 메모리에 붙들고 있는다)
+  const resetReviewForm = () => {
+    setNewReview((f) => {
+      f.images.forEach((item) => {
+        if (item.kind === "new") URL.revokeObjectURL(item.previewUrl);
+      });
+      return { rating: 5, content: "", images: [] };
+    });
+  };
+
   const submitReview = async () => {
     if (!newReview.content.trim() || submitting) return;
     setSubmitting(true);
     try {
+      // 새로 고른 파일만 multipart 파트로 올린다.
+      const files = newReview.images
+        .filter((i): i is Extract<ReviewImageItem, { kind: "new" }> => i.kind === "new")
+        .map((i) => i.file);
+
       if (editId !== null) {
-        await reviewApi.updateReview(editId, {
-          rating: newReview.rating,
-          content: newReview.content,
-        });
+        // 수정은 전체 교체다. 폼에 남아 있는 기존 이미지의 상대경로를 그대로 keepImageUrls 로 보내고,
+        // 여기 없는 기존 이미지는 서버에서 파일까지 삭제된다. 항상 명시적으로 배열을 보낸다
+        // (undefined 로 두면 "전부 유지"가 되어 사용자가 지운 사진이 되살아난다).
+        const keepImageUrls = newReview.images
+          .filter((i): i is Extract<ReviewImageItem, { kind: "existing" }> => i.kind === "existing")
+          .map((i) => i.url);
+
+        await reviewApi.updateReview(
+          editId,
+          { rating: newReview.rating, content: newReview.content, keepImageUrls },
+          files,
+        );
       } else {
         if (reviewReservationId == null) {
           alert("후기는 이용을 마친 예약 내역에서 작성할 수 있어요.");
           return;
         }
-        await reviewApi.createReview(reviewReservationId, {
-          rating: newReview.rating,
-          content: newReview.content,
-        });
+        await reviewApi.createReview(
+          reviewReservationId,
+          { rating: newReview.rating, content: newReview.content },
+          files,
+        );
       }
       await loadReviews();
       setEditId(null);
-      setNewReview({ rating: 5, content: "", images: [] });
+      resetReviewForm();
       setShowForm(false);
     } catch {
       alert("후기 저장에 실패했어요. 잠시 후 다시 시도해 주세요.");
@@ -288,7 +329,13 @@ export default function CampsiteDetailPage() {
   };
 
   const startEdit = (r: Review) => {
-    setNewReview({ rating: r.rating, content: r.content, images: r.images });
+    // r.images 는 서버 상대경로다. 전부 "기존 이미지"로 폼에 올려두고,
+    // 사용자가 지운 것만 keepImageUrls 에서 빠지게 한다.
+    setNewReview({
+      rating: r.rating,
+      content: r.content,
+      images: r.images.map((url) => ({ kind: "existing" as const, url })),
+    });
     setEditId(r.id);
     setShowForm(true);
   };
@@ -296,14 +343,23 @@ export default function CampsiteDetailPage() {
   const addReviewImages = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     const remaining = MAX_REVIEW_IMAGES - newReview.images.length;
-    const urls = files.slice(0, remaining).map((f) => URL.createObjectURL(f));
-    setNewReview((f) => ({ ...f, images: [...f.images, ...urls] }));
+    // 업로드는 File 객체가 있어야 하므로 미리보기 URL만 만들고 파일을 버리면 안 된다. 둘 다 들고 간다.
+    const added: ReviewImageItem[] = files.slice(0, remaining).map((file) => ({
+      kind: "new" as const,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setNewReview((f) => ({ ...f, images: [...f.images, ...added] }));
     e.target.value = "";
   };
 
-  const removeReviewImage = (url: string) => {
-    setNewReview((f) => ({ ...f, images: f.images.filter((u) => u !== url) }));
-    URL.revokeObjectURL(url);
+  // 목록에서 같은 파일을 두 번 고를 수 있어 URL이 아닌 인덱스로 지운다.
+  const removeReviewImage = (index: number) => {
+    setNewReview((f) => {
+      const target = f.images[index];
+      if (target?.kind === "new") URL.revokeObjectURL(target.previewUrl);
+      return { ...f, images: f.images.filter((_, i) => i !== index) };
+    });
   };
 
   // 로그인 여부에 따라 예약 진행 or 로그인 유도 분기
@@ -507,7 +563,7 @@ export default function CampsiteDetailPage() {
                   }
                   setShowForm((v) => !v);
                   setEditId(null);
-                  setNewReview({ rating: 5, content: "", images: [] });
+                  resetReviewForm();
                 }}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/80 transition-all"
               >
@@ -537,20 +593,20 @@ export default function CampsiteDetailPage() {
                   className="w-full bg-card rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground resize-none"
                 />
 
-                {/* Photo upload (UI만 유지 — 서버 저장 미구현, 차후 구현) */}
+                {/* Photo upload — 기존 이미지(서버 경로)와 새로 고른 파일(blob 미리보기)이 함께 놓인다 */}
                 <div className="flex items-center gap-2 flex-wrap mt-3">
-                  {newReview.images.map((url) => (
+                  {newReview.images.map((item, index) => (
                     <div
-                      key={url}
+                      key={item.kind === "existing" ? item.url : item.previewUrl}
                       className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0"
                     >
                       <img
-                        src={url}
+                        src={previewSrcOf(item)}
                         alt="첨부 사진"
                         className="w-full h-full object-cover"
                       />
                       <button
-                        onClick={() => removeReviewImage(url)}
+                        onClick={() => removeReviewImage(index)}
                         className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white flex items-center justify-center"
                       >
                         <X size={10} />
@@ -658,7 +714,8 @@ export default function CampsiteDetailPage() {
                           {review.images.map((src, i) => (
                             <img
                               key={i}
-                              src={src}
+                              // review.images 는 서버 상대경로라 그대로 쓰면 프론트 오리진(3000)으로 요청이 가 404다.
+                              src={reviewApi.toImageSrc(src)}
                               alt="후기 사진"
                               className="h-24 w-24 rounded-lg object-cover"
                             />
