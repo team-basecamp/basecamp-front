@@ -1,12 +1,11 @@
 import instance from "./instance";
-import type { Post } from "../types";
 import type { WishCamp } from "../types";
 
 /**
  * 회원(member) 관련 API 함수 모음 - 내 프로필/위시리스트/작성글/알림 조회.
- * - 내 프로필(조회/수정)은 백엔드 UserController 계약을 따른다: GET /v1/users/me, POST /v1/users/me(수정).
- * - 위시리스트/작성글/알림은 아직 백엔드 미구현이라 pages/mypage/*가 store/data mock 을 그대로 사용 중.
- *   실제 백엔드 연동 시 여기 함수들을 TanStack Query로 교체하면 됨.
+ * - 내 프로필(조회/수정)과 내가 쓴 게시글은 백엔드 UserController 계약을 따른다:
+ *   GET /v1/users/me, POST /v1/users/me(수정), GET /v1/users/me/posts(내 게시글).
+ * - 위시리스트는 아직 백엔드 미구현이라 pages/mypage/*가 store mock 을 그대로 사용 중.
  * - instance 의 응답 인터셉터가 res.data 로 언래핑하므로, 각 함수의 실제 resolve 값은 제네릭 타입 그대로다.
  */
 
@@ -37,8 +36,39 @@ export const updateMyProfile = (body: UpdateProfileRequest) =>
 export const getMyWishlist = () =>
   instance.get<{ wishlist: WishCamp[] }>("/v1/members/me/wishlist");
 
-export const getMyPosts = (pageNo = 1, numOfRows = 10) =>
-  instance.get<{ posts: Post[] }>("/v1/members/me/posts", { params: { pageNo, numOfRows } });
+/**
+ * 마이페이지 "내가 쓴 게시글" 한 줄(MyPostResponse).
+ * 작성자가 항상 본인이라 nickname 이 없고, 공용 목록(PostListItem)과 달리 category 도 담기지 않는다.
+ */
+export interface MyPostItem {
+  postId: number;
+  title: string;
+  /** 작성일(생성 시각)이다. 수정 시각이 아니다. */
+  createdAt: string;
+  viewCount: number;
+  commentCount: number;
+}
+
+/** 목록 응답 envelope(MyPostCursorResponse). 공용 게시글 목록과 형태가 같다. */
+export interface MyPostPage {
+  content: MyPostItem[];
+  hasNext: boolean;
+  /** 다음 요청의 cursor 로 그대로 실어 보낼 불투명 문자열. hasNext 가 false 면 null. */
+  nextCursor: string | null;
+}
+
+/**
+ * 내가 쓴 게시글 목록(최신순, 커서 페이징). 삭제·블라인드된 글은 서버가 제외한다.
+ * 첫 페이지는 cursor 없이 요청하고, 이후에는 직전 응답의 nextCursor 를 그대로 실어 보낸다.
+ * cursor 는 서버가 만든 불투명 값이므로 프론트에서 직접 조립하지 않는다.
+ */
+export const getMyPosts = (params: {
+  cursor?: string | null;
+  size?: number; // 1~50, 기본 10
+} = {}) =>
+  instance.get<MyPostPage>("/v1/users/me/posts", {
+    params: { cursor: params.cursor ?? undefined, size: params.size },
+  }) as unknown as Promise<MyPostPage>;
 
 // 알림 API 는 api/notification.ts 로 옮겼다.
 // 여기 있던 getMyNotifications / markNotificationRead 는 백엔드에 없는 /v1/members/me/notifications 를
