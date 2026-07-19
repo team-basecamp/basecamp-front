@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronRight, CheckCircle } from "lucide-react";
 import {
-  createPayment,
+  preparePayment,
+  completePayment,
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
   type PaymentMethod,
 } from "../../api/payment";
+import { requestPortOnePayment } from "../../lib/portone";
 import type { Camp } from "../../types";
 
 interface PaymentLocationState {
@@ -20,7 +22,14 @@ interface PaymentLocationState {
  * 결제 페이지 (/payment)
  * - 예약 플로우 2단계(결제 수단 선택/약관 동의) → 3단계(완료 안내)
  * - ReservationPage 에서 createReservation 으로 만든 예약(PENDING_PAYMENT)을 결제한다.
- * - 결제 금액은 서버가 예약의 totalPrice 로 직접 계산한다. 화면 금액은 표시용일 뿐이다.
+ *
+ * 포트원(PortOne) V2 결제 흐름 — 세 단계 모두 성공해야 결제가 확정된다:
+ *   1) preparePayment      서버가 결제 건을 등록하고 결제창 파라미터를 내려준다
+ *   2) requestPortOnePayment  결제창에서 실제 결제
+ *   3) completePayment     서버가 포트원에 직접 조회해 금액까지 확인하고 예약을 PENDING 으로 전이
+ *
+ * 결제창이 성공으로 닫혀도 3단계 전까지는 예약이 확정된 게 아니다. 결제 결과는 브라우저에서
+ * 얼마든지 위조할 수 있어서, 서버가 포트원에 다시 물어본 답만 신뢰한다.
  */
 export default function PaymentPage() {
   const navigate = useNavigate();
@@ -32,13 +41,12 @@ export default function PaymentPage() {
   const [method, setMethod] = useState<PaymentMethod>("CARD");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 결제창이 뜬 뒤 어디까지 진행됐는지 버튼에 보여준다. 결제는 단계가 여럿이라
+  // "처리 중" 한 마디로는 사용자가 멈춘 건지 진행 중인지 알 수 없다.
+  const [phase, setPhase] = useState<"idle" | "preparing" | "paying" | "confirming">("idle");
 
   // 예약 생성 없이 직접 들어온 경우 결제할 대상이 없다
   if (!state?.camp || !state.reservationId) {
-    console.log("state 전체:", JSON.stringify(state, null, 2));
-console.log("camp:", state?.camp);
-console.log("reservationId:", state?.reservationId);
-console.log("totalPrice:", state?.totalPrice);
     return (
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
         <p className="text-muted-foreground mb-6">예약 정보가 없습니다. 캠핑장을 먼저 선택해주세요.</p>
@@ -58,8 +66,30 @@ console.log("totalPrice:", state?.totalPrice);
     setError(null);
     setSubmitting(true);
     try {
-      // amount 는 보내지 않는다. 서버가 예약의 totalPrice 로 결제한다.
-      await createPayment({ reservationId, paymentMethod: method });
+      // 1) 결제 준비 — 금액/채널/주문명은 전부 서버가 정한다.
+      setPhase("preparing");
+      const prepared = await preparePayment({ reservationId, paymentMethod: method });
+
+      // 2) 결제창 — 모바일은 결제 앱으로 이동했다가 redirectUrl 로 돌아온다.
+      setPhase("paying");
+      const result = await requestPortOnePayment(
+        prepared,
+        `${window.location.origin}/payment/complete`
+      );
+
+      // `!result.ok` 나 else 분기로 쓰면 안 된다. 이 프로젝트는 tsconfig 가 strict:false 라
+      // (= strictNullChecks 꺼짐) 판별 유니온의 "부정" 좁히기가 동작하지 않아,
+      // result 가 실패 타입으로 좁혀지지 않고 message/cancelled 접근이 컴파일 에러가 난다.
+      // 명시적 `=== false` 비교만 좁히기가 먹는다.
+      if (result.ok === false) {
+        // 사용자가 스스로 닫은 것은 오류가 아니다. 조용히 원래 화면으로 돌려보낸다.
+        setError(result.cancelled ? null : result.message);
+        return;
+      }
+
+      // 3) 서버 확정 — 여기까지 성공해야 예약이 잡힌다.
+      setPhase("confirming");
+      await completePayment(result.paymentId);
       setStep(3);
     } catch (e: any) {
       console.error("결제 실패:", e);
@@ -68,7 +98,18 @@ console.log("totalPrice:", state?.totalPrice);
         "결제에 실패했습니다. 결제 대기 시간이 지났다면 예약을 다시 진행해주세요."
       );
     } finally {
+      setPhase("idle");
       setSubmitting(false);
+    }
+  };
+
+  // 버튼 문구. 결제창이 떠 있는 동안에도 무엇을 기다리는지 알 수 있게 한다.
+  const buttonLabel = () => {
+    switch (phase) {
+      case "preparing": return "결제 준비 중...";
+      case "paying": return "결제창에서 진행해주세요...";
+      case "confirming": return "결제 확인 중...";
+      default: return `₩${totalPrice.toLocaleString()} 결제하기`;
     }
   };
 
@@ -126,11 +167,15 @@ console.log("totalPrice:", state?.totalPrice);
                 value={m}
                 checked={method === m}
                 onChange={() => setMethod(m)}
+                disabled={submitting}
                 className="accent-primary"
               />
               <span className="text-sm">{PAYMENT_METHOD_LABELS[m]}</span>
             </label>
           ))}
+          <p className="text-xs text-muted-foreground mt-3">
+            테스트 모드로 동작합니다. 실제로 결제가 이뤄지지 않습니다.
+          </p>
         </div>
 
         {/* Price summary */}
@@ -162,7 +207,7 @@ console.log("totalPrice:", state?.totalPrice);
           disabled={!agreed || submitting}
           className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/80 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {submitting ? "결제 처리 중..." : `₩${totalPrice.toLocaleString()} 결제하기`}
+          {buttonLabel()}
         </button>
       </div>
     </div>

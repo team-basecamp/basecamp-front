@@ -22,6 +22,7 @@ import ReviewsPage from "../pages/campsite/ReviewsPage";
 import ReservationPage from "../pages/reservation/ReservationPage";
 import ReservationHistoryPage from "../pages/reservation/ReservationHistoryPage";
 import PaymentPage from "../pages/payment/PaymentPage";
+import PaymentCompletePage from "../pages/payment/PaymentCompletePage";
 import PostListPage from "../pages/post/PostListPage";
 import PostDetailPage from "../pages/post/PostDetailPage";
 import PostFormPage from "../pages/post/PostFormPage";
@@ -65,6 +66,8 @@ const router = createBrowserRouter([
       },
       { path: "reservations", element: <ReservationHistoryPage /> },
       { path: "payment", element: <PaymentPage /> },
+      // 모바일 결제 후 포트원이 되돌려보내는 지점. location.state가 살아남지 못하므로 paymentId를 쿼리 파라미터로 결제 완료를 확인
+      { path: "payment/complete", element: <PaymentCompletePage /> },
       { path: "reviews", element: <ReviewsPage /> },
       //{ path: "reviews/:reviewId", element: <ReviewDetailPage /> },
       { path: "posts", element: <PostListPage /> },
