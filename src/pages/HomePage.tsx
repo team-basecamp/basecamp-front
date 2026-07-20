@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Star, Users, ChevronRight, TrendingUp, MapPin } from "lucide-react";
 import CampCard from "../components/common/CampCard";
+import RegionWeatherWidget from "../components/common/RegionWeatherWidget";
 import { CAMPS } from "../data/camps";
 import { getHotCampsites, getCampsites } from "../api/campsite";
 import type { Camp } from "../types";
@@ -13,7 +14,7 @@ type HotSort = "rating" | "reservationCount";
 
 /**
  * 메인 홈페이지 (/)
- * - 히어로 검색창, 인기(HOT) 캠핑장, 유형별 카테고리, 최근 등록 캠핑장을 한 화면에 소개
+ * - 히어로 검색창, 인기(HOT) 캠핑장, 유형별 카테고리, 최근 등록 캠핑장, 시·도별 날씨를 한 화면에 소개
  * - HOT/최근 등록 캠핑장은 백엔드(GET /v1/camps/hot, /v1/camps/search?sort=recent)에서 조회하고,
  *   실패 시 data/camps.ts의 mock 데이터(CAMPS)로 폴백
  * - 검색/카테고리/태그 클릭 시 실제 필터링은 하지 않고 /campsites?... 로 이동만 시키며, 필터링은 CampsiteListPage에서 처리
@@ -50,7 +51,6 @@ export default function HomePage() {
   const onSearch = (q: string) => navigate(`/campsites?q=${encodeURIComponent(q)}`);
   const onCategoryClick = (induty: string) => navigate(`/campsites?induty=${encodeURIComponent(induty)}`);
   const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.campId}`);
-  const onLoginClick = () => navigate("/login");
 
   return (
     <div>
@@ -220,31 +220,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── CTA Banner ── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16">
-        <div
-          className="relative rounded-3xl overflow-hidden p-12 text-white text-center"
-          style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1A4033 100%)" }}
-        >
-          <div className="absolute inset-0 opacity-10"
-            style={{ backgroundImage: "url('https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=1200&h=400&fit=crop&auto=format')", backgroundSize: "cover", backgroundPosition: "center" }}
-          />
-          <div className="relative">
-            <h2 className="text-3xl font-bold mb-3" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              나만의 캠핑 후기를 공유하세요
-            </h2>
-            <p className="text-white/70 mb-8 max-w-md mx-auto text-sm">
-              직접 다녀온 캠핑장 후기를 남기고 다른 캠퍼들과 정보를 공유하세요
-            </p>
-            <button
-              onClick={onLoginClick}
-              className="px-8 py-3 rounded-xl bg-white text-primary font-bold text-sm hover:bg-white/90 transition-all"
-            >
-              무료로 시작하기
-            </button>
-          </div>
-        </div>
-      </section>
+      {/* ── 시·도별 날씨 ── */}
+      <RegionWeatherWidget />
     </div>
   );
 }

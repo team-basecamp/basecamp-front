@@ -175,3 +175,23 @@ export interface WeatherDay {
   humidity: number;
   icon: string;
 }
+
+/**
+ * 홈페이지 시/도별 날씨 위젯 응답 (GET /v1/weather/regions).
+ *
+ * 백엔드 RegionWeatherResponseDto 와 1:1 대응. regionName 을 뺀 나머지가 모두 optional 인 것은
+ * 오타가 아니라 계약이다 — 외부 날씨 API 호출이 실패하면 백엔드가 지역명만 담아 내려준다(fail-soft).
+ * 날씨는 부가 정보라, 일부 값이 비어도 위젯 전체가 사라지는 것보다 낫다는 판단이 서버 쪽에 있다.
+ */
+export interface RegionWeather {
+  /** 시/도 표시명 (예: "서울특별시") */
+  regionName: string;
+  /** 기온(섭씨) */
+  temp?: number | null;
+  /** 날씨 상태 문구 (예: "구름 조금") */
+  condition?: string | null;
+  /** 습도(%) */
+  humidity?: number | null;
+  /** OpenWeatherMap 아이콘 코드 (예: "04d") */
+  icon?: string | null;
+}
