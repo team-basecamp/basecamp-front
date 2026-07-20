@@ -45,7 +45,7 @@ export default function MyPageHeader({ active }: { active: MyTab }) {
     });
   }, []);
   
-  const wishedIds = useWishlistStore((s) => s.wishedIds);
+  const { wishedIds } = useWishlist();
 
   // 프로필 카드의 "게시글 N개"용. 목록 API는 커서 페이징이라 전체 건수를 따로 주지 않으므로
   // 한 페이지 상한(50건)만 받아 세고, 더 있으면 "50+"로 표시한다.
@@ -81,7 +81,7 @@ export default function MyPageHeader({ active }: { active: MyTab }) {
           <div className="text-sm text-muted-foreground mt-0.5">{user.email ?? `${user.nickname.toLowerCase().replace(/\s/g, "")}@email.com`}</div>
           <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
             <span>예약 {reservations.length}건</span>
-            <span>찜 {wishedIds.size}개</span>
+            <span>찜 {wishedIds.length}개</span>
             <span>게시글 {myPostCountLabel}개</span>
           </div>
         </div>

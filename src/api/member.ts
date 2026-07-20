@@ -1,5 +1,4 @@
 import instance from "./instance";
-import type { WishCamp } from "../types";
 
 /**
  * 회원(member) 관련 API 함수 모음 - 내 프로필/위시리스트/작성글/알림 조회.
