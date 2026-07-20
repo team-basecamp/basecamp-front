@@ -33,8 +33,8 @@ export const getMyProfile = () =>
 export const updateMyProfile = (body: UpdateProfileRequest) =>
   instance.post<MyProfile>("/v1/users/me", body) as unknown as Promise<MyProfile>;
 
-export const getMyWishlist = () =>
-  instance.get<{ wishlist: WishCamp[] }>("/v1/members/me/wishlist");
+// 찜 목록은 api/campsite.ts 의 getMyWishlists(GET /v1/wishlists/me)를 쓴다.
+// 여기 있던 getMyWishlist 는 백엔드에 없는 /v1/members/me/wishlist 를 부르고 있어 제거했다.
 
 /**
  * 마이페이지 "내가 쓴 게시글" 한 줄(MyPostResponse).

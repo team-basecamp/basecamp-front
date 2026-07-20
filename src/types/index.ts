@@ -145,13 +145,7 @@ export interface Notification {
 }
 
 // ─── Wishlist ────────────────────────────────────────────────────
-export interface WishCamp {
-  contentId: number;
-  facltNm: string;
-  addr1: string;
-  firstImageUrl: string;
-  rating: number;
-}
+// 찜 목록 항목 타입은 백엔드 계약을 그대로 따르는 api/campsite.ts 의 WishlistItem 을 쓴다.
 
 // ─── Chat ────────────────────────────────────────────────────────
 export interface ChatRoom {
