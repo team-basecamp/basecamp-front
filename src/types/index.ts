@@ -168,12 +168,28 @@ export interface ChatMessage {
 }
 
 // ─── Weather ─────────────────────────────────────────────────────
+/**
+ * 하루치 날씨 (백엔드 CampWeatherResponseDto.WeatherDay 와 1:1).
+ *
+ * date 를 뺀 나머지가 optional 인 것은 RegionWeather 와 같은 이유다 — 외부 날씨 API 응답에서
+ * 어느 필드든 빠질 수 있다고 보고 백엔드가 null 을 그대로 내려준다.
+ * (이전에는 전 필드가 필수였는데, 그건 값을 직접 만들어내던 mock 기준의 타입이었다.)
+ */
 export interface WeatherDay {
+  /** yyyy-MM-dd */
   date: string;
-  temp: number;
-  condition: string;
-  humidity: number;
-  icon: string;
+  temp?: number | null;
+  condition?: string | null;
+  humidity?: number | null;
+  /** OpenWeatherMap 아이콘 코드 (예: "04d"). 이모지가 아니므로 weatherEmoji() 로 변환해 쓴다. */
+  icon?: string | null;
+}
+
+/** 캠핑장 예약일 날씨 응답 (GET /v1/camps/{campId}/weather). */
+export interface CampWeather {
+  campId: number;
+  /** 예보 범위(5일) 밖의 날짜는 담기지 않는다. 전부 범위 밖이면 빈 배열. */
+  weather: WeatherDay[];
 }
 
 /**

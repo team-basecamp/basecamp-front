@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Droplets } from "lucide-react";
 import { getRegionWeathers } from "../../api/weather";
+import { weatherEmoji } from "../../lib/weatherIcon";
 import type { RegionWeather } from "../../types";
 
 /**
@@ -14,25 +15,6 @@ import type { RegionWeather } from "../../types";
  * 방문자가 처음 보는 화면이라, 여기서 에러 배너를 띄우면 서비스 전체가 고장난 것처럼 보인다.
  * (백엔드도 같은 이유로 fail-soft 다 — 외부 API 가 죽으면 지역명만 담아 내려준다.)
  */
-
-/**
- * OpenWeatherMap 아이콘 코드 → 이모지.
- *
- * 제공자의 아이콘 이미지 URL을 직접 쓰지 않는 이유: 외부 호스트에 매 렌더 의존하게 되고,
- * 이미 캠핑장 상세의 mock 날씨(data/weather.ts)가 이모지를 쓰고 있어 표기가 갈린다.
- * 낮/밤(d/n)이 갈리는 것은 맑음 계열뿐이라 나머지는 같은 이모지를 쓴다.
- */
-const ICON_EMOJI: Record<string, string> = {
-  "01d": "☀️", "01n": "🌙",
-  "02d": "🌤️", "02n": "☁️",
-  "03d": "⛅", "03n": "⛅",
-  "04d": "☁️", "04n": "☁️",
-  "09d": "🌧️", "09n": "🌧️",
-  "10d": "🌦️", "10n": "🌧️",
-  "11d": "⛈️", "11n": "⛈️",
-  "13d": "🌨️", "13n": "🌨️",
-  "50d": "🌫️", "50n": "🌫️",
-};
 
 /**
  * 날씨별 타일 색.
@@ -187,7 +169,7 @@ export default function RegionWeatherWidget() {
                       <div
                         className={`w-14 h-14 my-2 rounded-full flex items-center justify-center text-3xl ${style.halo}`}
                       >
-                        {(region.icon && ICON_EMOJI[region.icon]) ?? "🌡️"}
+                        {weatherEmoji(region.icon)}
                       </div>
 
                       <div className="text-3xl font-extrabold leading-none tracking-tight">
