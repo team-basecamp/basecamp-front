@@ -25,7 +25,8 @@ import { getWeatherPreview } from "../../data/weather";
 import { getCampsiteDetail } from "../../api/campsite";
 import * as reviewApi from "../../api/review";
 import useAuthStore from "../../store/authStore";
-import useWishlistStore from "../../store/wishlistStore";
+import { useWishlist } from "../../hooks/useWishlist";
+import { campKey } from "../../lib/camp";
 import type { Camp, Review } from "../../types";
 import type { ReviewResponse } from "../../api/review";
 import * as reservationApi from "../../api/reservation";
@@ -79,15 +80,14 @@ const previewSrcOf = (item: ReviewImageItem): string =>
  * - 캠핑장 소개/편의시설/날씨 미리보기/찜하기/리뷰(작성·수정·삭제)를 한 화면에서 처리
  * - 리뷰는 백엔드 API(api/review.ts)와 연동 (목록 조회 / 작성 / 수정 / 삭제)
  * - 이미지 첨부는 UI만 유지하며 서버 저장은 미구현 (차후 구현 예정)
- * - 찜 상태는 store/wishlistStore로 전역 관리되어 캠핑장 목록/찜 목록 화면과 동기화됨
+ * - 찜 상태는 hooks/useWishlist(서버 상태)로 관리되어 캠핑장 목록/찜 목록 화면과 동기화됨
  */
 export default function CampsiteDetailPage() {
   const { contentId } = useParams<{ contentId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
-  const isWished = useWishlistStore((s) => s.isWished);
-  const toggleWish = useWishlistStore((s) => s.toggleWish);
+  const { isWished, toggleWish, isPending: wishPending } = useWishlist();
 
   const [camp, setCamp] = useState<Camp | undefined>(
     CAMPS.find((c) => (c.campId ?? c.contentId) === Number(contentId)),
@@ -806,15 +806,17 @@ export default function CampsiteDetailPage() {
                   onLoginRequest();
                   return;
                 }
-                toggleWish(camp.contentId);
+                toggleWish(campKey(camp));
               }}
-              className={`w-full py-2 rounded-xl border text-sm flex items-center justify-center gap-1 transition-all ${isWished(camp.contentId) ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
+              disabled={wishPending}
+              aria-pressed={isWished(campKey(camp))}
+              className={`w-full py-2 rounded-xl border text-sm flex items-center justify-center gap-1 transition-all disabled:opacity-60 ${isWished(campKey(camp)) ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
             >
               <Heart
                 size={14}
-                className={isWished(camp.contentId) ? "fill-primary" : ""}
+                className={isWished(campKey(camp)) ? "fill-primary" : ""}
               />
-              {isWished(camp.contentId) ? "찜 완료" : "찜하기"}
+              {isWished(campKey(camp)) ? "찜 완료" : "찜하기"}
             </button>
 
             <div className="mt-4 pt-4 border-t border-border space-y-2 text-xs text-muted-foreground">
