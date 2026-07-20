@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, Calendar, Heart, FileText, LogOut, Pencil, Star } from "lucide-react";
-import { POSTS } from "../../data/posts";
+import { useQuery } from "@tanstack/react-query";
+import { getMyPosts } from "../../api/member";
 import useLogout from "../../hooks/useLogout";
 import useAuthStore from "../../store/authStore";
 import useNotificationStore from "../../store/notificationStore";
@@ -18,6 +19,9 @@ import {
  * - active prop으로 현재 탭을 표시하고, 탭 클릭 시 TAB_ROUTES 매핑에 따라 각 페이지로 이동
  */
 export type MyTab = "reservations" | "wishlist" | "posts" | "reviews" | "notifications";
+
+// 내 게시글 수를 셀 때 한 번에 받아오는 최대 건수. 백엔드 size 파라미터 상한(50)과 같다.
+const MY_POST_COUNT_LIMIT = 50;
 
 const TAB_ROUTES: Record<MyTab, string> = {
   reservations: "/reservations",
@@ -41,8 +45,19 @@ export default function MyPageHeader({ active }: { active: MyTab }) {
     });
   }, []);
   
-  const { wishlists } = useWishlist();
-  const myPosts = POSTS.filter((p) => p.writer === user?.nickname);
+  const { wishedIds } = useWishlist();
+
+  // 프로필 카드의 "게시글 N개"용. 목록 API는 커서 페이징이라 전체 건수를 따로 주지 않으므로
+  // 한 페이지 상한(50건)만 받아 세고, 더 있으면 "50+"로 표시한다.
+  // 정확한 총계가 필요해지면 백엔드에 count 를 추가하는 편이 낫다.
+  const { data: myPostPage } = useQuery({
+    queryKey: ["myPosts", "count"],
+    queryFn: () => getMyPosts({ size: MY_POST_COUNT_LIMIT }),
+    enabled: !!user,
+  });
+  const myPostCountLabel = myPostPage
+    ? `${myPostPage.content.length}${myPostPage.hasNext ? "+" : ""}`
+    : "-";
 
   const TABS: { key: MyTab; label: string; icon: ReactNode; badge?: number }[] = [
     { key: "reservations", label: "예약 내역", icon: <Calendar size={15} />, badge: reservations.filter((r) => ["PENDING", "PENDING_PAYMENT"].includes(r.status)).length },
@@ -66,8 +81,8 @@ export default function MyPageHeader({ active }: { active: MyTab }) {
           <div className="text-sm text-muted-foreground mt-0.5">{user.email ?? `${user.nickname.toLowerCase().replace(/\s/g, "")}@email.com`}</div>
           <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
             <span>예약 {reservations.length}건</span>
-            <span>찜 {wishlists.length}개</span>
-            <span>게시글 {myPosts.length}개</span>
+            <span>찜 {wishedIds.length}개</span>
+            <span>게시글 {myPostCountLabel}개</span>
           </div>
         </div>
       </div>

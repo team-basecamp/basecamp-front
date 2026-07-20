@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Eye, Send, Edit3, Trash2, Flag, MessageCircle, Check, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Eye, Send, Edit3, Trash2, Flag, MessageCircle, Check } from "lucide-react";
 import {
   getPostDetail,
   getComments,
@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../../components/common/dialog";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import useAuthStore from "../../store/authStore";
 import type { PostCategory } from "../../types";
 
@@ -74,6 +75,12 @@ export default function PostDetailPage() {
     queryFn: () => getPostDetail(postId),
     enabled: Number.isFinite(postId),
     retry: false, // 404(삭제)·403(블라인드)는 재시도해도 결과가 같다.
+    // 이 GET 은 서버에서 조회수를 1 올리는 부수효과가 있어, 자동 재조회가 곧 조회수 뻥튀기가 된다.
+    // (탭을 옮겼다 돌아올 때마다 +1). 글 내용은 읽는 도중 바뀔 일이 드무니 자동 갱신을 모두 끄고,
+    // 수정 직후처럼 실제로 바뀐 시점에만 invalidate 로 다시 불러온다.
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: Infinity,
   });
 
   const { data: comments = [] } = useQuery({
@@ -395,67 +402,6 @@ export default function PostDetailPage() {
         </div>
       </div>
     </div>
-  );
-}
-
-/**
- * 삭제처럼 되돌릴 수 없는 동작을 확인받는 다이얼로그. window.confirm 을 대체한다.
- * - 확인을 눌러도 바로 닫지 않는다. 요청이 끝난 뒤 호출부(mutation 의 onSuccess/onError)가 닫는다.
- *   그래야 처리 중에 버튼을 잠가 중복 요청을 막고, 실패 시 오류 메시지를 보여줄 수 있다.
- */
-function ConfirmDialog({
-  open,
-  onOpenChange,
-  title,
-  description,
-  confirmLabel = "확인",
-  pendingLabel,
-  onConfirm,
-  isPending = false,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description?: string;
-  confirmLabel?: string;
-  /** 처리 중에 확인 버튼에 표시할 문구. 없으면 confirmLabel 을 그대로 쓴다. */
-  pendingLabel?: string;
-  onConfirm: () => void;
-  isPending?: boolean;
-}) {
-  return (
-    // 처리 중에는 바깥 클릭·ESC 로 닫히지 않게 막는다.
-    <Dialog open={open} onOpenChange={(o) => { if (!isPending) onOpenChange(o); }}>
-      <DialogContent className="max-w-sm rounded-2xl">
-        {/* DialogHeader 기본값의 sm:text-left 를 덮어야 데스크톱에서도 가운데 정렬이 유지된다. */}
-        <DialogHeader className="items-center text-center sm:text-center">
-          <div className="w-12 h-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mb-1">
-            <AlertTriangle size={22} />
-          </div>
-          <DialogTitle style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{title}</DialogTitle>
-          {description && (
-            <DialogDescription className="leading-relaxed">{description}</DialogDescription>
-          )}
-        </DialogHeader>
-
-        <div className="flex gap-2 mt-2">
-          <button
-            onClick={() => onOpenChange(false)}
-            disabled={isPending}
-            className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all disabled:opacity-40"
-          >
-            취소
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={isPending}
-            className="flex-1 py-2.5 rounded-xl bg-destructive text-white text-sm font-semibold hover:bg-destructive/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {isPending ? pendingLabel ?? confirmLabel : confirmLabel}
-          </button>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 
