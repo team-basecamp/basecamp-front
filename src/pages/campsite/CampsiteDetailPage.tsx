@@ -21,13 +21,13 @@ import {
 } from "lucide-react";
 import StarRow from "../../components/common/StarRow";
 import { CAMPS } from "../../data/camps";
-import { getWeatherPreview } from "../../data/weather";
-import { getCampsiteDetail } from "../../api/campsite";
+import { weatherEmoji } from "../../lib/weatherIcon";
+import { getCampsiteDetail, getCampsiteWeather } from "../../api/campsite";
 import * as reviewApi from "../../api/review";
 import useAuthStore from "../../store/authStore";
 import { useWishlist } from "../../hooks/useWishlist";
 import { campKey } from "../../lib/camp";
-import type { Camp, Review } from "../../types";
+import type { Camp, Review, WeatherDay } from "../../types";
 import type { ReviewResponse } from "../../api/review";
 import * as reservationApi from "../../api/reservation";
 
@@ -145,6 +145,8 @@ export default function CampsiteDetailPage() {
 
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
+  const [weatherDays, setWeatherDays] = useState<WeatherDay[]>([]);
+  const [weatherLoading, setWeatherLoading] = useState(false);
   const [guestCount, setGuestCount] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const MAX_REVIEW_IMAGES = 5;
@@ -223,6 +225,41 @@ export default function CampsiteDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * 예약 기간의 실제 날씨를 백엔드에서 받아온다(OpenWeatherMap 5일 예보 기반).
+   *
+   * 훅이라 `if (!camp)` 조기 반환보다 위에 있어야 한다. 그래서 camp 유무는 훅 안에서 가린다.
+   * 날짜를 아직 안 골랐으면 호출할 것이 없으므로 결과를 비우고 끝낸다.
+   *
+   * 실패해도 에러를 띄우지 않는다. 날씨는 예약 판단을 돕는 부가 정보일 뿐이라, 외부 API 장애가
+   * 상세페이지에 에러 배너를 띄우면 안 된다(백엔드 WeatherClient 의 fail-soft 정책과 같은 결).
+   */
+  useEffect(() => {
+    if (!camp || !checkIn || !checkOut) {
+      setWeatherDays([]);
+      return;
+    }
+
+    let active = true;
+    setWeatherLoading(true);
+
+    getCampsiteWeather(camp.campId, checkIn, checkOut)
+      .then((res) => {
+        if (active) setWeatherDays(res.weather ?? []);
+      })
+      .catch(() => {
+        if (active) setWeatherDays([]);
+      })
+      .finally(() => {
+        if (active) setWeatherLoading(false);
+      });
+
+    // 날짜를 빠르게 바꾸면 이전 요청이 나중에 도착해 최신 결과를 덮어쓸 수 있다. 정리된 요청은 무시한다.
+    return () => {
+      active = false;
+    };
+  }, [camp, checkIn, checkOut]);
+
   if (!camp) {
     return (
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
@@ -242,8 +279,6 @@ export default function CampsiteDetailPage() {
       </div>
     );
   }
-
-  const weatherDays = getWeatherPreview(camp.contentId, checkIn, checkOut);
 
   // 백엔드 @Future 검증 때문에 오늘은 선택 불가
   const tomorrow = addDay(toDateStr(new Date()));
@@ -499,7 +534,13 @@ export default function CampsiteDetailPage() {
             <p className="text-muted-foreground text-sm mb-4">
               체크인·체크아웃 날짜를 선택하면 예상 날씨를 볼 수 있어요
             </p>
-            {weatherDays.length > 0 ? (
+            {weatherLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <div key={i} className="bg-muted rounded-xl h-[116px] animate-pulse" />
+                ))}
+              </div>
+            ) : weatherDays.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {weatherDays.map((w) => (
                   <div
@@ -509,25 +550,33 @@ export default function CampsiteDetailPage() {
                     <p className="text-xs text-muted-foreground mb-1">
                       {w.date.slice(5)}
                     </p>
-                    <p className="text-2xl mb-1">{w.icon}</p>
+                    {/* icon 은 "04d" 같은 제공자 코드다. 그대로 찍으면 코드가 그대로 보인다. */}
+                    <p className="text-2xl mb-1">{weatherEmoji(w.icon)}</p>
                     <p
                       className="font-bold text-sm"
                       style={{ fontFamily: "'DM Mono', monospace" }}
                     >
-                      {w.temp}°C
+                      {w.temp != null ? `${Math.round(w.temp)}°C` : "–"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {w.condition}
+                      {w.condition ?? "정보 없음"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      습도 {w.humidity}%
+                      습도 : {w.humidity != null ? `${w.humidity}%` : "–"}
                     </p>
                   </div>
                 ))}
               </div>
             ) : (
+              /*
+                결과가 비는 경우가 두 가지다. mock 을 쓸 때는 날짜만 고르면 항상 값이 나왔지만,
+                실제 예보는 5일 범위 밖이면 그 날짜가 아예 담기지 않는다(WeatherService.getCampWeather).
+                날짜를 이미 고른 사용자에게 "날짜를 선택해주세요"라고 하면 고장으로 읽히므로 문구를 나눈다.
+              */
               <p className="text-sm text-muted-foreground py-4 text-center bg-muted rounded-xl">
-                오른쪽에서 체크인·체크아웃 날짜를 선택해주세요
+                {checkIn && checkOut
+                  ? "예보는 5일 이내만 제공돼요. 날짜가 가까워지면 다시 확인해주세요"
+                  : "오른쪽에서 체크인·체크아웃 날짜를 선택해주세요"}
               </p>
             )}
           </div>
