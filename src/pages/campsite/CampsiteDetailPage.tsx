@@ -18,8 +18,17 @@ import {
   Trash2,
   Camera,
   X,
+  Check,
 } from "lucide-react";
 import StarRow from "../../components/common/StarRow";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+} from "../../components/common/alert-dialog";
 import { CAMPS } from "../../data/camps";
 import { weatherEmoji } from "../../lib/weatherIcon";
 import { getCampsiteDetail, getCampsiteWeather } from "../../api/campsite";
@@ -142,6 +151,7 @@ export default function CampsiteDetailPage() {
     images: [],
   });
   const [editId, setEditId] = useState<number | null>(null); // 현재 수정 중인 리뷰 id (null이면 신규 작성)
+  const [alertMessage, setAlertMessage] = useState<string | null>(null); // window.alert 대체용 안내 메시지
 
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
@@ -333,7 +343,7 @@ export default function CampsiteDetailPage() {
         );
       } else {
         if (reviewReservationId == null) {
-          alert("후기는 이용을 마친 예약 내역에서 작성할 수 있어요.");
+          setAlertMessage("후기는 이용을 마친 예약 내역에서 작성할 수 있어요.");
           return;
         }
         await reviewApi.createReview(
@@ -347,7 +357,7 @@ export default function CampsiteDetailPage() {
       resetReviewForm();
       setShowForm(false);
     } catch {
-      alert("후기 저장에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      setAlertMessage("후기 저장에 실패했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setSubmitting(false);
     }
@@ -359,7 +369,7 @@ export default function CampsiteDetailPage() {
       await reviewApi.deleteReview(id);
       setCampReviews((prev) => prev.filter((r) => r.id !== id)); // 204 응답이라 낙관적으로 목록에서 제거
     } catch {
-      alert("삭제에 실패했어요.");
+      setAlertMessage("삭제에 실패했어요.");
     }
   };
 
@@ -883,6 +893,24 @@ export default function CampsiteDetailPage() {
           </div>
         </div>
       </div>
+
+      <AlertDialog open={alertMessage !== null} onOpenChange={(o) => !o && setAlertMessage(null)}>
+        <AlertDialogContent className="max-w-sm rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>알림</AlertDialogTitle>
+          </AlertDialogHeader>
+
+          <div className="py-8 text-center space-y-5">
+            <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
+              <Check size={24} />
+            </div>
+            <AlertDialogDescription className="text-sm text-foreground">
+              {alertMessage}
+            </AlertDialogDescription>
+            <AlertDialogAction>확인</AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
