@@ -4,9 +4,11 @@ import type { Camp, CampRegistrationRequest, CampWeather } from "../types";
 /**
  * 캠핑장(campsite) 관련 API 함수 모음 - 목록/검색/상세/인기 캠핑장, 날씨, 찜하기,
  * 그리고 캠핑업체 전용 CRUD.
- * - createCampsite(POST /v1/camps/register), getMyCampsites(GET /v1/camps/my),
- *   updateCampsite(PATCH /v1/camps/{campId})는 실제 백엔드와 연동됨.
- * - deleteCampsite는 대응하는 백엔드 엔드포인트가 아직 없음.
+ *
+ * 이미지가 MinIO 로 이관되면서 등록/수정은 multipart/form-data 로 나간다:
+ * - 캠핑장 정보는 "request"(application/json) 파트, 새 이미지 파일은 "images" 파트.
+ * - 보안 정책상 GET/POST 만 쓰므로 수정은 POST /v1/camps/{campId}/update,
+ *   삭제는 POST /v1/camps/{campId}/delete 다(PATCH/DELETE 아님).
  */
 export const getMapData = (mapX: number, mapY: number) =>
   instance.get("/v1/map", { params: { mapX, mapY } });
@@ -91,20 +93,39 @@ export const getMyWishlists = () =>
   instance.get<WishlistItem[]>("/v1/wishlists/me") as unknown as Promise<WishlistItem[]>;
 
 // 캠핑업체 전용
+
+/**
+ * 백엔드가 'request' 파트를 @RequestPart 로 받으므로 Content-Type 이 application/json 이어야 한다.
+ * 문자열로 그냥 append 하면 text/plain 으로 나가 415 가 되므로 Blob 으로 감싸 타입을 명시한다.
+ * 파일이 하나도 없으면 images 파트를 아예 넣지 않는다(백엔드에서 required=false).
+ */
+const buildCampForm = (request: object, images?: File[]) => {
+  const form = new FormData();
+  form.append("request", new Blob([JSON.stringify(request)], { type: "application/json" }));
+  images?.forEach((file) => form.append("images", file));
+  return form;
+};
+
+// 캠핑장 수정 요청 본문. keepImageUrls 로 남길 기존 이미지를, images(파일)로 새 이미지를 보낸다.
+// - keepImageUrls 생략(undefined): 기존 이미지 전부 유지 / 빈 배열([]): 전부 삭제
+// 대표 이미지(firstImageUrl)는 최종 이미지 목록의 첫 장으로 백엔드가 자동 지정한다.
+export type CampUpdateRequest = Partial<CampRegistrationRequest> & { keepImageUrls?: string[] };
+
+// 캠핑장 등록 (POST /v1/camps/register, multipart). 이미지 파일을 함께 올린다.
 // 등록 직후 응답의 contentId는 항상 null (고캠핑 공공API 연동 캠핑장이 아니므로 자체 발급된 camp_id만 존재)
-export const createCampsite = (payload: CampRegistrationRequest) =>
-  instance.post<Camp>("/v1/camps/register", payload) as unknown as Promise<Camp>;
+export const createCampsite = (request: CampRegistrationRequest, images?: File[]) =>
+  instance.post<Camp>("/v1/camps/register", buildCampForm(request, images)) as unknown as Promise<Camp>;
 
 export const getMyCampsites = () =>
   instance.get<Camp[]>("/v1/camps/my") as unknown as Promise<Camp[]>;
 
-// 캠핑장 정보 수정 (PATCH /v1/camps/{campId}) - 실제 백엔드와 연동됨
-export const updateCampsite = (campId: number, payload: Partial<Camp>) =>
-  instance.patch<Camp>(`/v1/camps/${campId}`, payload) as unknown as Promise<Camp>;
+// 캠핑장 정보 수정 (POST /v1/camps/{campId}/update, multipart)
+export const updateCampsite = (campId: number, request: CampUpdateRequest, images?: File[]) =>
+  instance.post<Camp>(`/v1/camps/${campId}/update`, buildCampForm(request, images)) as unknown as Promise<Camp>;
 
-// 캠핑장 삭제 (DELETE /v1/camps/{campId})
+// 캠핑장 삭제 (POST /v1/camps/{campId}/delete, 소프트 삭제). 첨부 이미지는 저장소에서 완전히 지워진다.
 export const deleteCampsite = (campId: number) =>
-  instance.delete(`/v1/camps/${campId}`);
+  instance.post(`/v1/camps/${campId}/delete`);
 
 // 관리자 전용
 // 고캠핑 공공API 전체를 백엔드가 직접 호출해 DB에 동기화 (POST /v1/camps/fetch, ADMIN 전용).

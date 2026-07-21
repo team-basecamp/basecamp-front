@@ -11,6 +11,7 @@ import useLogout from "../../hooks/useLogout";
 import useRole from "../../hooks/useRole";
 import useAuthStore, { type MemberRole, type SocialProvider } from "../../store/authStore";
 import useNotificationStore from "../../store/notificationStore";
+import { resolveImageUrl } from "../../lib/imageUrl";
 import "./Header.css";
 
 // Basecamp logo SVG — shield/pin shape with mountain+tent
@@ -39,7 +40,15 @@ function BasecampLogo({ size = 32 }: { size?: number }) {
  * 프로필 아바타 — 소셜 로그인 provider 로고를 원형으로 보여준다.
  * provider 정보가 없으면(구버전 세션 등) 닉네임 첫 글자로 폴백한다.
  */
-function ProfileAvatar({ nickname, provider }: { nickname: string; provider?: SocialProvider }) {
+function ProfileAvatar({ nickname, provider, image }: { nickname: string; provider?: SocialProvider; image?: string }) {
+  // 프로필 이미지가 있으면 소셜 뱃지 대신 실제 이미지를 보여준다(직접 올린 이미지·소셜 CDN 모두).
+  if (image) {
+    return (
+      <div className="w-6 h-6 rounded-full overflow-hidden bg-primary">
+        <img src={resolveImageUrl(image)} alt={nickname} className="w-full h-full object-cover" />
+      </div>
+    );
+  }
   if (provider === "KAKAO") {
     return (
       <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "#FEE500" }} aria-label="카카오 로그인">
@@ -197,7 +206,7 @@ export default function Header() {
                   onClick={() => setProfileOpen((v) => !v)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-all text-sm"
                 >
-                  <ProfileAvatar nickname={user.nickname} provider={user.provider} />
+                  <ProfileAvatar nickname={user.nickname} provider={user.provider} image={user.profileImage} />
                   <span className="hidden sm:block font-medium max-w-[100px] truncate">{user.nickname}</span>
                   <ChevronDown size={14} className="text-muted-foreground" />
                 </button>

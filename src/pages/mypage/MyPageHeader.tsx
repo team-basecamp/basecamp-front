@@ -7,6 +7,7 @@ import useLogout from "../../hooks/useLogout";
 import useAuthStore from "../../store/authStore";
 import useNotificationStore from "../../store/notificationStore";
 //import useReservationStore from "../../store/reservationStore";
+import { resolveImageUrl } from "../../lib/imageUrl";
 import { useWishlist } from "../../hooks/useWishlist";
 import {
   getMyReservations,
@@ -73,8 +74,12 @@ export default function MyPageHeader({ active }: { active: MyTab }) {
     <>
       {/* Profile card */}
       <div className="bg-card border border-border rounded-2xl p-6 mb-6 flex items-center gap-5">
-        <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-2xl font-bold text-white">
-          {user.nickname[0].toUpperCase()}
+        <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-2xl font-bold text-white overflow-hidden">
+          {user.profileImage ? (
+            <img src={resolveImageUrl(user.profileImage)} alt={user.nickname} className="w-full h-full object-cover" />
+          ) : (
+            user.nickname[0].toUpperCase()
+          )}
         </div>
         <div className="flex-1">
           <div className="font-bold text-lg" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{user.nickname}</div>
