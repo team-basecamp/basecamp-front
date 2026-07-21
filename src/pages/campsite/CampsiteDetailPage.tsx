@@ -188,8 +188,32 @@ export default function CampsiteDetailPage() {
     loadReviews();
   }, [loadReviews]);
 
+  // 다른 화면(예약 목록 등)에서 특정 예약의 "리뷰 작성하기"를 눌러 navigate state로 reservationId가
+  // 온 경우, 추측하지 않고 그 예약을 그대로 작성 대상으로 쓴다. location.key가 매 navigate마다
+  // 새로 생기므로, 같은 캠핑장으로 다시 이동해 리마운트가 안 일어나도 이 effect는 다시 돈다.
+  // (예전엔 deps가 []라 최초 1회만 실행돼, 두 번째 리뷰부터는 이 state가 무시되고 있었다)
+  useEffect(() => {
+    const state = location.state as
+      | { openReviewForm?: boolean; reservationId?: number }
+      | null;
+    if (!state) return;
+
+    if (state.openReviewForm && user) {
+      setShowForm(true);
+    }
+    if (state.reservationId != null) {
+      setReviewReservationId(state.reservationId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key, user]);
+
+  // 리뷰 작성 대상이 명시적으로 지정되지 않은 경우에만, 이 캠핑장에 대해 아직 리뷰를 안 쓴
+  // 체크아웃 완료 예약을 목록에서 추측한다. hasReview를 그대로 신뢰하므로 /v1/reviews/me를
+  // 별도로 불러 교차비교할 필요가 없다.
   useEffect(() => {
     if (!user || campId == null) return;
+    const state = location.state as { reservationId?: number } | null;
+    if (state?.reservationId != null) return;
     if (reviewReservationId != null) return;
 
     let cancelled = false;
@@ -197,21 +221,14 @@ export default function CampsiteDetailPage() {
       try {
         const today = toDateStr(new Date());
         const page = await reservationApi.getMyReservations({ size: 100 });
-        const completed = page.content.filter(
-          (r) =>
-            r.campId === campId &&
-            r.status === "RESERVED" &&
-            r.checkOutDate < today,
-        );
-        if (completed.length === 0) {
-          if (!cancelled) setReviewReservationId(null);
-          return;
-        }
-
-        const myReviews = await reviewApi.getMyReviews();
-        const reviewedResIds = new Set(myReviews.map((rv) => rv.reservationId));
-        const writable = completed
-          .filter((r) => !reviewedResIds.has(r.id))
+        const writable = page.content
+          .filter(
+            (r) =>
+              r.campId === campId &&
+              r.status === "RESERVED" &&
+              r.checkOutDate < today &&
+              !r.hasReview,
+          )
           .sort((a, b) => b.checkOutDate.localeCompare(a.checkOutDate));
 
         if (!cancelled) setReviewReservationId(writable[0]?.id ?? null);
@@ -222,18 +239,7 @@ export default function CampsiteDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, campId, reviewReservationId]);
-
-  // 다른 화면(예: 예약 완료 후)에서 navigate로 넘어올 때 state로 리뷰 작성폼 자동 오픈 요청이 온 경우 처리
-  useEffect(() => {
-    if (
-      (location.state as { openReviewForm?: boolean } | null)?.openReviewForm &&
-      user
-    ) {
-      setShowForm(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user, campId, reviewReservationId, location.key]);
 
   /**
    * 예약 기간의 실제 날씨를 백엔드에서 받아온다(OpenWeatherMap 5일 예보 기반).
@@ -329,9 +335,6 @@ export default function CampsiteDetailPage() {
         .map((i) => i.file);
 
       if (editId !== null) {
-        // 수정은 전체 교체다. 폼에 남아 있는 기존 이미지의 상대경로를 그대로 keepImageUrls 로 보내고,
-        // 여기 없는 기존 이미지는 서버에서 파일까지 삭제된다. 항상 명시적으로 배열을 보낸다
-        // (undefined 로 두면 "전부 유지"가 되어 사용자가 지운 사진이 되살아난다).
         const keepImageUrls = newReview.images
           .filter((i): i is Extract<ReviewImageItem, { kind: "existing" }> => i.kind === "existing")
           .map((i) => i.url);
@@ -351,6 +354,9 @@ export default function CampsiteDetailPage() {
           { rating: newReview.rating, content: newReview.content },
           files,
         );
+        // 방금 쓴 예약은 이제 hasReview=true가 됐으니, 추측 effect가 다음 미작성 예약을
+        // 새로 찾도록 리셋한다. 이걸 안 하면 같은 reservationId에 계속 고정돼 재제출 시 409가 난다.
+        setReviewReservationId(null);
       }
       await loadReviews();
       setEditId(null);

@@ -74,8 +74,10 @@ export default function ReservationList() {
     }
   };
 
-  const onReview = (campId: number) =>
-    navigate(`/campsites/${campId}`, { state: { openReviewForm: true } });
+  const onReview = (campId: number, reservationId: number) =>
+    navigate(`/campsites/${campId}`, {
+      state: { openReviewForm: true, reservationId },
+    });
 
   if (loading) {
     return <p className="py-16 text-center text-muted-foreground text-sm">불러오는 중...</p>;

@@ -52,6 +52,8 @@ export interface ReservationListResponse {
   rejectReason?: string | null;
   cancelDate?: string | null;
   createdAt: string;
+  /** 이 예약에 이미 리뷰가 작성됐는지. true면 리뷰 작성 대상에서 제외해야 한다 */
+  hasReview: boolean;
 }
 
 /** ReservationStatsResponse.java - 사업자 대시보드 예약 통계 (확정 예약 기준)*/
