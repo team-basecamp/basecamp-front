@@ -1,5 +1,5 @@
 import instance from "./instance";
-import type { Camp, CampRegistrationRequest, WeatherDay } from "../types";
+import type { Camp, CampRegistrationRequest, CampWeather } from "../types";
 
 /**
  * 캠핑장(campsite) 관련 API 함수 모음 - 목록/검색/상세/인기 캠핑장, 날씨, 찜하기,
@@ -60,10 +60,20 @@ export const getHotCampsites = (sortBy: "rating" | "reservationCount" = "rating"
     params: { sortBy, numOfRows, pageNo },
   });
 
-export const getCampsiteWeather = (contentId: number, checkInDate: string, checkOutDate: string) =>
-  instance.get<{ contentId: number; weather: WeatherDay[] }>(`/v1/camps/${contentId}/weather`, {
+/**
+ * 예약 기간의 날씨 조회 (GET /v1/camps/{campId}/weather).
+ *
+ * 백엔드는 campId(PK)를 받는다. 예전에는 이 함수만 contentId 를 넘기고 있었는데, 자체 등록
+ * 캠핑장은 contentId 가 null 이라 `/v1/camps/null/weather` 가 나갔다. getCampsiteDetail 이
+ * 이미 campId 로 통일한 것과 같은 이유로 맞춘다.
+ *
+ * 예보 범위(5일) 밖의 날짜는 응답에 담기지 않으므로, weather 길이가 요청 일수보다 짧을 수 있다.
+ * 응답 인터셉터가 공통 봉투의 data 를 벗기므로 런타임 반환값은 AxiosResponse 가 아니다(weather.ts 와 동일).
+ */
+export const getCampsiteWeather = (campId: number, checkInDate: string, checkOutDate: string) =>
+  instance.get<CampWeather>(`/v1/camps/${campId}/weather`, {
     params: { checkInDate, checkOutDate },
-  });
+  }) as unknown as Promise<CampWeather>;
 
 // 찜 토글 (POST /v1/camps/{campId}/wishlist)
 // 이미 찜한 캠핑장이면 해제하고 아니면 등록한다. 결과 상태는 응답의 wished 로 내려온다.
