@@ -100,7 +100,7 @@ const ROLE_MENU_ITEMS: Record<MemberRole, ProfileMenuItem[]> = {
   ],
   CAMP_OWNER: [
     MYPAGE_ITEM,
-    { label: "캠핑업체 대시보드", to: "/business/campsites", icon: <BasecampLogo size={14} /> },
+    { label: "내 캠핑장 관리", to: "/business/campsites", icon: <BasecampLogo size={14} /> },
     // 승격된 회원도 자신의 전환 신청 결과(승인 내역)를 다시 확인할 수 있도록 진입 경로를 남긴다.
     { label: "전환 신청 결과", to: "/mypage/camp-owner", icon: <Tent size={14} /> },
   ],

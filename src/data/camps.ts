@@ -249,7 +249,7 @@ export const CAMPS: Camp[] = [
 
 export const HOT_CAMPS = [...CAMPS].sort((a, b) => b.rating - a.rating).slice(0, 4);
 
-export const REGIONS = ["전체", "강원", "경기", "경남", "충남", "제주", "전남", "경북"];
+export const REGIONS = ["전체", "서울", "경기", "제주", "부산", "대전", "대구", "강원", "충남", "전남광주", "경북", "경남"];
 
 // label: 화면에 보여줄 이름 / value: 실제 induty 필터링에 쓰이는 값
 // 고캠핑 원본 데이터의 오토캠핑 유형은 "자동차야영장"으로 저장되어 있어 value를 분리함

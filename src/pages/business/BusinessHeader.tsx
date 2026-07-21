@@ -81,7 +81,7 @@ export default function BusinessHeader({ active }: { active: BusinessTab }) {
             className="text-2xl font-bold"
             style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
-            캠핑업체 대시보드
+            내 캠핑장 관리
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             내 캠핑장을 관리하세요
