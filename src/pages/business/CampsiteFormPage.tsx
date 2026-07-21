@@ -118,7 +118,7 @@ export default function CampsiteFormPage() {
     setLoading(true);
     getCampsiteDetail(campId)
       .then((res: any) => {
-        const camp = res.data?.data ?? res.data;
+        const camp = res;
         setForm({
           facltNm: camp.facltNm ?? "",
           addr1: camp.addr1 ?? "",

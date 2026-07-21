@@ -64,7 +64,7 @@ export default function BusinessHeader({ active }: { active: BusinessTab }) {
 
   useEffect(() => {
     getMyCampsites()
-      .then((res) => setMyCampsCount(res.data?.length ?? 0))
+      .then((res) => setMyCampsCount(res?.length ?? 0))
       .catch((err) => console.error("내 캠핑장 조회 실패", err));
   }, []);
   const pendingCount = stats?.pendingCount ?? 0;

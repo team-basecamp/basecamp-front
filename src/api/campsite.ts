@@ -21,12 +21,17 @@ export interface GetCampsitesParams {
   numOfRows?: number;
 }
 
-/** 캠핑장 목록 공통 envelope (CampListResponseDto) */
-export interface CampListEnvelope {
-  resultCode: string;
-  resultMsg: string;
-  data: Camp[];
-  totalCount: number;
+/**
+ * Spring Data Page 직렬화 형태. 검색/HOT 목록 응답이 이 구조로 내려온다.
+ * (백엔드가 camp 도메인의 이중 응답 봉투를 제거하면서 목록이 Page 로 통일됨.
+ *  인터셉터가 바깥 봉투의 data 를 벗겨주므로 런타임 resolve 값이 곧 이 Page 다.)
+ */
+export interface SpringPage<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
 }
 
 /** 찜 토글 응답 (WishlistToggleResponse) */
@@ -46,19 +51,16 @@ export interface WishlistItem {
 
 // 키워드/지역/유형/최대금액 필터 + 정렬 + 페이징을 조합한 캠핑장 검색(=목록 조회)
 export const getCampsites = (params: GetCampsitesParams = {}) =>
-  instance.get<{ resultCode: string; resultMsg: string; data: Camp[]; totalCount: number }>(
-    "/v1/camps/search",
-    { params }
-  );
+  instance.get<SpringPage<Camp>>("/v1/camps/search", { params }) as unknown as Promise<SpringPage<Camp>>;
 
 // campId(실제 PK)로 상세 조회. 자체 등록 캠핑장은 contentId가 null이라 PK 기준으로 통일한다.
 export const getCampsiteDetail = (campId: number) =>
-  instance.get<{ resultCode: string; resultMsg: string; data: Camp }>(`/v1/camps/${campId}`);
+  instance.get<Camp>(`/v1/camps/${campId}`) as unknown as Promise<Camp>;
 
 export const getHotCampsites = (sortBy: "rating" | "reservationCount" = "rating", numOfRows = 10, pageNo = 1) =>
-  instance.get<{ resultCode: string; resultMsg: string; data: Camp[] }>("/v1/camps/hot", {
+  instance.get<SpringPage<Camp>>("/v1/camps/hot", {
     params: { sortBy, numOfRows, pageNo },
-  });
+  }) as unknown as Promise<SpringPage<Camp>>;
 
 /**
  * 예약 기간의 날씨 조회 (GET /v1/camps/{campId}/weather).
@@ -91,14 +93,14 @@ export const getMyWishlists = () =>
 // 캠핑업체 전용
 // 등록 직후 응답의 contentId는 항상 null (고캠핑 공공API 연동 캠핑장이 아니므로 자체 발급된 camp_id만 존재)
 export const createCampsite = (payload: CampRegistrationRequest) =>
-  instance.post<{ resultCode: string; resultMsg: string; data: Camp }>("/v1/camps/register", payload);
+  instance.post<Camp>("/v1/camps/register", payload) as unknown as Promise<Camp>;
 
 export const getMyCampsites = () =>
-  instance.get<CampListEnvelope>("/v1/camps/my") as unknown as Promise<CampListEnvelope>;
+  instance.get<Camp[]>("/v1/camps/my") as unknown as Promise<Camp[]>;
 
 // 캠핑장 정보 수정 (PATCH /v1/camps/{campId}) - 실제 백엔드와 연동됨
 export const updateCampsite = (campId: number, payload: Partial<Camp>) =>
-  instance.patch(`/v1/camps/${campId}`, payload);
+  instance.patch<Camp>(`/v1/camps/${campId}`, payload) as unknown as Promise<Camp>;
 
 // 캠핑장 삭제 (DELETE /v1/camps/{campId})
 export const deleteCampsite = (campId: number) =>

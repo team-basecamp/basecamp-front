@@ -75,8 +75,8 @@ export default function CampsiteListPage() {
       numOfRows: PAGE_SIZE,
     })
       .then((res: any) => {
-        const data: Camp[] = res.data ?? [];
-        setTotalCount(res.totalCount ?? data.length);
+        const data: Camp[] = res.content ?? [];
+        setTotalCount(res.totalElements ?? data.length);
         setUsingFallback(false);
         setCamps((prev) => (append ? [...prev, ...data] : data));
       })

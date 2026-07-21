@@ -49,7 +49,7 @@ export default function ReservationPage() {
     if (prefill?.camp) return;
     let cancelled = false;
     getCampsiteDetail(Number(campsiteId))
-      .then((res: any) => { if (!cancelled) setCamp(res.data); })
+      .then((res: any) => { if (!cancelled) setCamp(res); })
       .finally(() => { if (!cancelled) setCampLoading(false); });
     return () => { cancelled = true; };
   }, [campsiteId]);

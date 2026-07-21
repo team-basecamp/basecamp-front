@@ -65,7 +65,7 @@ export default function ReservationList() {
     try {
       const res = await getCampsiteDetail(reservation.campId);
       navigate("/payment", {
-        state: { camp: res.data, reservationId, totalPrice: reservation.totalPrice },
+        state: { camp: res, reservationId, totalPrice: reservation.totalPrice },
       });
     } catch {
       setError("캠핑장 정보를 불러오지 못했습니다");

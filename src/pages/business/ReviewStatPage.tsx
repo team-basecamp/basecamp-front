@@ -30,9 +30,9 @@ export default function ReviewStatPage() {
 
     (async () => {
       try {
-        // 응답은 CampListResponseDto envelope 이라 실제 배열은 res.data 안에 있다.
+        // 인터셉터가 봉투를 벗겨 resolve 값이 곧 캠핑장 배열이다(이중 봉투 제거 후).
         const res = await getMyCampsites();
-        const camps = (res.data ?? []).filter((c) => c.campId != null);
+        const camps = (res ?? []).filter((c) => c.campId != null);
         if (cancelled) return;
         setCampCount(camps.length);
 
