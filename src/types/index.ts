@@ -174,6 +174,20 @@ export interface ChatMessage {
 
 // ─── Weather ─────────────────────────────────────────────────────
 /**
+ * 날씨 조회 결과 상태 (백엔드 WeatherStatus enum 과 1:1).
+ *
+ * 값이 비었다는 사실만으로는 "정상인데 데이터가 없음"과 "외부 API 장애"를 구분할 수 없어서
+ * 백엔드가 상태를 명시적으로 내려준다. 프론트는 이 값으로 안내 문구를 나눈다.
+ * - `OK`           : 값이 정상적으로 담겨 있다.
+ * - `NO_DATA`      : 조회는 성공했으나 해당 조건의 데이터가 없다(예: 예보 5일 범위 밖). 오류가 아니다.
+ * - `FETCH_FAILED` : 외부 날씨 API 조회 실패. 사용자 잘못이 아니고, 나중에 다시 보면 될 수 있다.
+ *
+ * HTTP 상태는 여전히 200 이다. 날씨 실패가 페이지 전체를 막지 않아야 하므로 백엔드가 에러로
+ * 던지지 않고 본문에 상태를 실어 보내는 계약이다.
+ */
+export type WeatherStatus = "OK" | "NO_DATA" | "FETCH_FAILED";
+
+/**
  * 하루치 날씨 (백엔드 CampWeatherResponseDto.WeatherDay 와 1:1).
  *
  * date 를 뺀 나머지가 optional 인 것은 RegionWeather 와 같은 이유다 — 외부 날씨 API 응답에서
@@ -193,6 +207,11 @@ export interface WeatherDay {
 /** 캠핑장 예약일 날씨 응답 (GET /v1/camps/{campId}/weather). */
 export interface CampWeather {
   campId: number;
+  /**
+   * 조회 결과 상태. weather 가 비었을 때 이유를 이 값으로만 알 수 있다
+   * (NO_DATA = 예보 범위 밖, FETCH_FAILED = 외부 API 실패).
+   */
+  status: WeatherStatus;
   /** 예보 범위(5일) 밖의 날짜는 담기지 않는다. 전부 범위 밖이면 빈 배열. */
   weather: WeatherDay[];
 }
@@ -200,13 +219,16 @@ export interface CampWeather {
 /**
  * 홈페이지 시/도별 날씨 위젯 응답 (GET /v1/weather/regions).
  *
- * 백엔드 RegionWeatherResponseDto 와 1:1 대응. regionName 을 뺀 나머지가 모두 optional 인 것은
- * 오타가 아니라 계약이다 — 외부 날씨 API 호출이 실패하면 백엔드가 지역명만 담아 내려준다(fail-soft).
+ * 백엔드 RegionWeatherResponseDto 와 1:1 대응. regionName/status 를 뺀 나머지가 모두 optional 인 것은
+ * 오타가 아니라 계약이다 — 외부 날씨 API 호출이 실패하면 백엔드가 지역명과 status 만 담아 내려준다(fail-soft).
  * 날씨는 부가 정보라, 일부 값이 비어도 위젯 전체가 사라지는 것보다 낫다는 판단이 서버 쪽에 있다.
+ * 실패한 지역은 값이 비는 대신 status 가 FETCH_FAILED 로 오므로, 그 지역만 골라 다르게 표시할 수 있다.
  */
 export interface RegionWeather {
   /** 시/도 표시명 (예: "서울특별시") */
   regionName: string;
+  /** 지역별 조회 상태. 지역 하나가 실패해도 나머지는 OK 로 내려온다. */
+  status: WeatherStatus;
   /** 기온(섭씨) */
   temp?: number | null;
   /** 날씨 상태 문구 (예: "구름 조금") */
