@@ -28,7 +28,7 @@ export default function HomePage() {
 
   useEffect(() => {
     getHotCampsites(hotSort, 4)
-      .then((res: any) => setHotCamps(res.data ?? []))
+      .then((res: any) => setHotCamps(res.content ?? []))
       .catch(() => {
         setHotCamps(
           [...CAMPS]
@@ -44,7 +44,7 @@ export default function HomePage() {
 
   useEffect(() => {
     getCampsites({ sort: "recent", numOfRows: 3 })
-      .then((res: any) => setRecentCamps(res.data ?? []))
+      .then((res: any) => setRecentCamps(res.content ?? []))
       .catch(() => setRecentCamps(CAMPS.slice(4, 7)));
   }, []);
 

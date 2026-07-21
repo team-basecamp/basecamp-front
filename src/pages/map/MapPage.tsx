@@ -25,7 +25,7 @@ export default function MapPage() {
   useEffect(() => {
     getCampsites({ numOfRows: 500 })
       .then((res: any) => {
-        const data: Camp[] = res.data;
+        const data: Camp[] = res.content;
         setCamps(data);
         setSelected(data[0] ?? null);
       })

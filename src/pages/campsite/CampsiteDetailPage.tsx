@@ -109,7 +109,7 @@ export default function CampsiteDetailPage() {
     getCampsiteDetail(Number(contentId))
       .then((res: any) => {
         if (cancelled) return;
-        const fetched: Camp = res.data;
+        const fetched: Camp = res;
         setCamp(fetched);
         // ReservationPage가 아직 mock 데이터(CAMPS)에서 contentId 기준으로만 캠핑장을 조회하므로,
         // 공공 API로 불러온 캠핑장과 자체 등록 캠핑장(contentId가 null이라 campId로 식별)도

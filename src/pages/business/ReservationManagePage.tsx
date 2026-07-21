@@ -48,13 +48,13 @@ export default function ReservationManagePage() {
   const [processingId, setProcessingId] = useState<number | null>(null);
 
   // 1. 내 캠핑장 목록 → 첫 캠핑장 자동 선택
-  //    응답은 CampListResponseDto envelope 이라 실제 배열은 res.data 안에 있다.
+  //    인터셉터가 봉투를 벗겨 resolve 값이 곧 캠핑장 배열이다(이중 봉투 제거 후).
   useEffect(() => {
     let cancelled = false;
     getMyCampsites()
       .then((res) => {
         if (cancelled) return;
-        const list = res.data ?? [];
+        const list = res ?? [];
         setCamps(list);
         if (list.length > 0) setCampId(list[0].campId);
       })
