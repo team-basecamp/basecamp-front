@@ -125,6 +125,8 @@ export interface Reservation {
 export type NotificationType =
   | "RESERVATION_CONFIRMED"
   | "RESERVATION_REJECTED"
+  | "RESERVATION_REQUESTED"
+  | "RESERVATION_CANCELLED"
   | "RESERVATION_D1"
   | "CAMP_OWNER_APPROVED"
   | "CAMP_OWNER_REJECTED";

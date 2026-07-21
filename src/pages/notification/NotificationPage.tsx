@@ -10,6 +10,8 @@ import type { Notification, NotificationTargetType, NotificationType } from "../
 const NOTIFICATION_ICONS: Record<NotificationType, string> = {
   RESERVATION_CONFIRMED: "✅",
   RESERVATION_REJECTED: "❌",
+  RESERVATION_REQUESTED: "📩",
+  RESERVATION_CANCELLED: "⚠️",
   RESERVATION_D1: "⏰",
   CAMP_OWNER_APPROVED: "🎉",
   CAMP_OWNER_REJECTED: "🚫",
@@ -21,6 +23,18 @@ const NOTIFICATION_ROUTES: Record<NotificationTargetType, string> = {
   RESERVATION: "/reservations",
   CAMP_OWNER_APPLICATION: "/mypage/camp-owner",
 };
+
+// RESERVATION_REQUESTED/CANCELLED는 targetType은 똑같이 RESERVATION이지만 수신자가 고객이 아니라
+// 캠핑업체다. targetType만으로는 구분이 안 되므로 type을 직접 보고 업체용 예약관리로 보낸다.
+const OWNER_FACING_TYPES: NotificationType[] = [
+  "RESERVATION_REQUESTED",
+  "RESERVATION_CANCELLED",
+];
+
+const resolveNotificationRoute = (notif: Notification) =>
+  OWNER_FACING_TYPES.includes(notif.type)
+    ? "/business/reservations"
+    : NOTIFICATION_ROUTES[notif.targetType] ?? "/mypage";
 
 /**
  * 알림 목록 (/notifications)
@@ -58,7 +72,7 @@ export default function NotificationPage() {
     } catch (err) {
       setError(getApiErrorMessage(err, "읽음 처리에 실패했습니다."));
     }
-    navigate(NOTIFICATION_ROUTES[notif.targetType] ?? "/mypage");
+    navigate(resolveNotificationRoute(notif));
   };
 
   const handleMarkAllRead = () => {
