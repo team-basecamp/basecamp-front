@@ -22,7 +22,7 @@ interface ReservationCardProps {
   onCampClick: (campId: number) => void;
   onCancel?: (reservationId: number) => void;
   onPay?: (reservationId: number) => void;
-  onReview?: (campId: number) => void;
+  onReview?: (campId: number, reservationId: number) => void;
 }
 
 export default function ReservationCard({
@@ -118,15 +118,21 @@ export default function ReservationCard({
         </div>
       )}
 
-      {/* 이용 완료 → 리뷰 */}
+      {/* 이용 완료 → 리뷰. 이미 작성된 예약은 다시 작성 대상으로 보내지 않는다(409 방지) */}
       {isCompleted && (
         <div className="mt-3 pt-3 border-t border-border">
-          <button
-            onClick={() => onReview?.(res.campId)}
-            className="w-full py-2 rounded-xl border border-primary/30 text-primary text-xs font-medium hover:bg-primary/5 transition-all flex items-center justify-center gap-1"
-          >
-            <Star size={12} /> 리뷰 작성하기
-          </button>
+          {res.hasReview ? (
+            <div className="w-full py-2 rounded-xl bg-muted text-muted-foreground text-xs font-medium flex items-center justify-center gap-1">
+              <Star size={12} /> 리뷰 작성 완료
+            </div>
+          ) : (
+            <button
+              onClick={() => onReview?.(res.campId, res.id)}
+              className="w-full py-2 rounded-xl border border-primary/30 text-primary text-xs font-medium hover:bg-primary/5 transition-all flex items-center justify-center gap-1"
+            >
+              <Star size={12} /> 리뷰 작성하기
+            </button>
+          )}
         </div>
       )}
     </div>
