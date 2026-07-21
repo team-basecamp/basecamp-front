@@ -36,7 +36,7 @@ import * as reviewApi from "../../api/review";
 import useAuthStore from "../../store/authStore";
 import { useWishlist } from "../../hooks/useWishlist";
 import { campKey } from "../../lib/camp";
-import type { Camp, Review, WeatherDay } from "../../types";
+import type { Camp, Review, WeatherDay, WeatherStatus } from "../../types";
 import type { ReviewResponse } from "../../api/review";
 import * as reservationApi from "../../api/reservation";
 
@@ -156,6 +156,11 @@ export default function CampsiteDetailPage() {
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [weatherDays, setWeatherDays] = useState<WeatherDay[]>([]);
+  /**
+   * 날씨 조회 결과 상태. weatherDays 가 비었을 때 이유를 여기서만 알 수 있다.
+   * 아직 조회한 적이 없으면(날짜 미선택) null.
+   */
+  const [weatherStatus, setWeatherStatus] = useState<WeatherStatus | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [guestCount, setGuestCount] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -249,10 +254,15 @@ export default function CampsiteDetailPage() {
    *
    * 실패해도 에러를 띄우지 않는다. 날씨는 예약 판단을 돕는 부가 정보일 뿐이라, 외부 API 장애가
    * 상세페이지에 에러 배너를 띄우면 안 된다(백엔드 WeatherClient 의 fail-soft 정책과 같은 결).
+   *
+   * 대신 실패를 조용히 삼키지는 않는다. 백엔드가 HTTP 200 안에 status 를 실어 보내므로
+   * (NO_DATA=예보 범위 밖 / FETCH_FAILED=외부 API 실패), 그 값을 그대로 들고 있다가 안내 문구를 나눈다.
+   * 요청 자체가 깨진 경우도 사용자에게는 "날씨를 못 받았다"는 같은 상황이라 FETCH_FAILED 로 합친다.
    */
   useEffect(() => {
     if (!camp || !checkIn || !checkOut) {
       setWeatherDays([]);
+      setWeatherStatus(null);
       return;
     }
 
@@ -261,10 +271,14 @@ export default function CampsiteDetailPage() {
 
     getCampsiteWeather(camp.campId, checkIn, checkOut)
       .then((res) => {
-        if (active) setWeatherDays(res.weather ?? []);
+        if (!active) return;
+        setWeatherDays(res.weather ?? []);
+        setWeatherStatus(res.status ?? "OK");
       })
       .catch(() => {
-        if (active) setWeatherDays([]);
+        if (!active) return;
+        setWeatherDays([]);
+        setWeatherStatus("FETCH_FAILED");
       })
       .finally(() => {
         if (active) setWeatherLoading(false);
@@ -585,14 +599,18 @@ export default function CampsiteDetailPage() {
               </div>
             ) : (
               /*
-                결과가 비는 경우가 두 가지다. mock 을 쓸 때는 날짜만 고르면 항상 값이 나왔지만,
-                실제 예보는 5일 범위 밖이면 그 날짜가 아예 담기지 않는다(WeatherService.getCampWeather).
-                날짜를 이미 고른 사용자에게 "날짜를 선택해주세요"라고 하면 고장으로 읽히므로 문구를 나눈다.
+                결과가 비는 경우가 셋이라 문구를 각각 나눈다. 전부 "정보 없음"으로 뭉치면
+                사용자가 기다려야 하는지, 다시 시도해야 하는지, 날짜를 골라야 하는지 알 수 없다.
+                - 날짜 미선택        → 아직 조회한 적이 없다(weatherStatus === null)
+                - NO_DATA           → 조회는 됐지만 예보 5일 범위 밖이다. 오류가 아니다.
+                - FETCH_FAILED      → 외부 날씨 API 장애. 사용자 잘못이 아니고 나중에 되돌아온다.
               */
               <p className="text-sm text-muted-foreground py-4 text-center bg-muted rounded-xl">
-                {checkIn && checkOut
-                  ? "예보는 5일 이내만 제공돼요. 날짜가 가까워지면 다시 확인해주세요"
-                  : "오른쪽에서 체크인·체크아웃 날짜를 선택해주세요"}
+                {weatherStatus === "FETCH_FAILED"
+                  ? "날씨 정보를 불러오지 못했어요. 잠시 후 다시 확인해주세요"
+                  : weatherStatus === "NO_DATA"
+                    ? "예보는 5일 이내만 제공돼요. 날짜가 가까워지면 다시 확인해주세요"
+                    : "오른쪽에서 체크인·체크아웃 날짜를 선택해주세요"}
               </p>
             )}
           </div>
