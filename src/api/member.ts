@@ -18,19 +18,37 @@ export interface MyProfile {
   createdAt: string;
 }
 
-/** 내 프로필 수정 요청. profileImageUrl 을 비우거나 null 로 보내면 이미지를 제거한다. */
+/**
+ * 내 프로필 수정 요청의 JSON 파트(백엔드 UpdateProfileRequest).
+ * 프로필 이미지는 URL 이 아니라 파일 업로드로 바뀌었다(MinIO). 이미지를 어떻게 다룰지는
+ * image 파일 유무와 removeImage 조합으로 정한다:
+ * - image 파일을 함께 보내면 → 그 파일로 교체(removeImage 는 무시)
+ * - 파일 없이 removeImage=true → 기존 이미지 제거
+ * - 파일 없이 removeImage 생략/false → 이미지는 그대로 유지
+ */
 export interface UpdateProfileRequest {
   nickname: string;
-  profileImageUrl?: string | null;
+  removeImage?: boolean;
 }
 
 /** 내 프로필 조회. */
 export const getMyProfile = () =>
   instance.get<MyProfile>("/v1/users/me") as unknown as Promise<MyProfile>;
 
-/** 내 프로필(닉네임·프로필 이미지) 수정. 성공 시 갱신된 프로필을 돌려준다. */
-export const updateMyProfile = (body: UpdateProfileRequest) =>
-  instance.post<MyProfile>("/v1/users/me", body) as unknown as Promise<MyProfile>;
+/**
+ * 백엔드가 'request' 파트를 @RequestPart 로 받으므로 Content-Type 이 application/json 이어야 한다.
+ * 프로필 이미지는 단일 파일이라 "image" 파트로 보낸다(없으면 파트를 넣지 않음, required=false).
+ */
+const buildProfileForm = (request: UpdateProfileRequest, image?: File | null) => {
+  const form = new FormData();
+  form.append("request", new Blob([JSON.stringify(request)], { type: "application/json" }));
+  if (image) form.append("image", image);
+  return form;
+};
+
+/** 내 프로필(닉네임·프로필 이미지) 수정(POST /v1/users/me, multipart). 성공 시 갱신된 프로필을 돌려준다. */
+export const updateMyProfile = (request: UpdateProfileRequest, image?: File | null) =>
+  instance.post<MyProfile>("/v1/users/me", buildProfileForm(request, image)) as unknown as Promise<MyProfile>;
 
 // 찜 목록은 api/campsite.ts 의 getMyWishlists(GET /v1/wishlists/me)를 쓴다.
 // 여기 있던 getMyWishlist 는 백엔드에 없는 /v1/members/me/wishlist 를 부르고 있어 제거했다.

@@ -1,12 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ImagePlus, X } from "lucide-react";
 import type { AxiosError } from "axios";
 import { createCampsite, getCampsiteDetail, updateCampsite } from "../../api/campsite";
 import NoticeDialog from "../../components/common/NoticeDialog";
+import { resolveImageUrl } from "../../lib/imageUrl";
 import type { CampRegistrationRequest } from "../../types";
 
 const INDUTY_OPTIONS = ["일반야영장", "오토캠핑장", "글램핑", "카라반"];
+
+/** 첨부 이미지 최대 개수. 백엔드 minio.max-count 와 맞춰야 한다(초과 시 IMAGE_COUNT_EXCEEDED). */
+const MAX_IMAGES = 10;
 
 // 다음(Daum) 우편번호 서비스 공식 CDN 스크립트. 백엔드 키 없이 무료로 쓸 수 있다.
 // 이 스크립트가 로드되면 전역 객체 window.daum.Postcode 가 생긴다.
@@ -54,7 +58,6 @@ const EMPTY_FORM = {
   autoSiteCo: 0,
   glampSiteCo: 0,
   price: 1000,
-  firstImageUrl: "",
   lineIntro: "",
   homepage: "",
 };
@@ -85,7 +88,9 @@ function isValidPhone(raw: string): boolean {
 /**
  * 캠핑장 등록/수정 폼 (/business/campsites/new, /business/campsites/:contentId/edit)
  * - PostFormPage와 동일한 패턴: :contentId 파라미터 존재 여부로 등록/수정 모드를 나눔
- * - 등록(신규)은 POST /v1/camps/register, 수정은 PATCH /v1/camps/{campId} 실제 백엔드 API로 연동됨
+ * - 등록은 POST /v1/camps/register, 수정은 POST /v1/camps/{campId}/update (둘 다 multipart)
+ * - 이미지는 MinIO 로 업로드된다. 대표 이미지(firstImageUrl)는 최종 이미지 목록의 첫 장으로 백엔드가 자동 지정한다.
+ *   수정은 전체 교체 방식: 최종 = 남긴 기존 이미지(keepImageUrls) + 새로 고른 파일(images).
  * - 수정 모드의 기존 정보는 GET /v1/camps/{campId}(실제 PK)로 백엔드에서 조회한다(mock 데이터에는 자체 등록 캠핑장이 없음)
  */
 export default function CampsiteFormPage() {
@@ -95,6 +100,8 @@ export default function CampsiteFormPage() {
   const campId = contentId ? Number(contentId) : undefined;
 
   const [form, setForm] = useState(EMPTY_FORM);
+  const [keepImageUrls, setKeepImageUrls] = useState<string[]>([]); // 수정 시 남길 기존 이미지 URL
+  const [newFiles, setNewFiles] = useState<File[]>([]); // 이번에 새로 올릴 파일
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -129,14 +136,31 @@ export default function CampsiteFormPage() {
           autoSiteCo: camp.autoSiteCo ?? 0,
           glampSiteCo: camp.glampSiteCo ?? 0,
           price: camp.price ?? 1000,
-          firstImageUrl: camp.firstImageUrl ?? "",
           lineIntro: camp.lineIntro ?? "",
           homepage: camp.homepage ?? "",
         });
+        // 상세 응답의 갤러리(imageUrls)를 "남길 기존 이미지"의 초기값으로 채운다.
+        setKeepImageUrls(camp.imageUrls ?? []);
       })
       .catch(() => setErrorMsg("캠핑장 정보를 불러오지 못했습니다."))
       .finally(() => setLoading(false));
   }, [campId]);
+
+  // 새로 고른 파일의 로컬 미리보기(objectURL). 파일 목록이 바뀔 때만 만들고 직전 것은 revoke 한다.
+  const previewUrls = useMemo(() => newFiles.map((file) => URL.createObjectURL(file)), [newFiles]);
+  useEffect(() => () => previewUrls.forEach((url) => URL.revokeObjectURL(url)), [previewUrls]);
+
+  const imageCount = keepImageUrls.length + newFiles.length;
+
+  const onPickFiles = (files: FileList | null) => {
+    if (!files?.length) return;
+    const picked = Array.from(files);
+    const room = MAX_IMAGES - imageCount;
+    if (picked.length > room) {
+      setErrorMsg(`이미지는 최대 ${MAX_IMAGES}장까지 첨부할 수 있습니다.`);
+    }
+    setNewFiles((prev) => [...prev, ...picked.slice(0, Math.max(room, 0))]);
+  };
 
   const updateField = <K extends keyof typeof form>(key: K) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -172,7 +196,12 @@ export default function CampsiteFormPage() {
     facltNm: form.facltNm.trim().length === 0 ? "시설명은 필수입니다." : null,
     addr1: form.addr1.trim().length === 0 ? "주소는 필수입니다. 주소 검색으로 선택해주세요." : null,
     price: form.price < 1000 ? "1박 요금은 최소 1,000원 이상 입력해주세요." : null,
-    firstImageUrl: form.firstImageUrl.trim().length === 0 ? "사진은 필수입니다. 대표 이미지 URL을 입력해주세요." : null,
+    image:
+      imageCount === 0
+        ? "사진은 필수입니다. 최소 1장 이상 첨부해주세요."
+        : imageCount > MAX_IMAGES
+          ? `이미지는 최대 ${MAX_IMAGES}장까지 첨부할 수 있습니다.`
+          : null,
     lineIntro: form.lineIntro.trim().length === 0 ? "한줄 소개는 필수입니다. 한줄 소개를 입력해주세요." : null,
   };
   // 전화번호는 필수값이며 형식도 맞아야 한다. 빈 값이면 필수 안내를, 값이 있는데 형식이 틀리면 형식 안내를 보여준다.
@@ -201,6 +230,8 @@ export default function CampsiteFormPage() {
     setErrorMsg(null);
 
     if (isEdit) {
+      // 대표 이미지(firstImageUrl)는 최종 이미지 목록의 첫 장으로 백엔드가 정하므로 여기서 보내지 않는다.
+      // keepImageUrls(남긴 기존 이미지) + newFiles(새 파일)가 최종 이미지 목록이 된다.
       const payload = {
         facltNm: form.facltNm,
         addr1: form.addr1,
@@ -212,12 +243,12 @@ export default function CampsiteFormPage() {
         autoSiteCo: form.autoSiteCo,
         glampSiteCo: form.glampSiteCo,
         lineIntro: form.lineIntro.trim(),
-        firstImageUrl: form.firstImageUrl.trim(),
         homepage: form.homepage || undefined,
+        keepImageUrls,
       };
 
       try {
-        await updateCampsite(campId!, payload);
+        await updateCampsite(campId!, payload, newFiles);
         navigate("/business/campsites");
       } catch (err) {
         const axiosErr = err as AxiosError<{ message?: string; errors?: ValidationErrorItem[] }>;
@@ -231,6 +262,7 @@ export default function CampsiteFormPage() {
 
     // maxPeople, operatingHours, intro는 백엔드 CampRegistrationRequest에
     // 대응하는 필드가 없어 전송하지 않음(등록 API가 저장하지 않음)
+    // firstImageUrl 도 보내지 않는다 — 업로드한 이미지의 첫 장이 대표 이미지가 된다.
     const payload: CampRegistrationRequest = {
       facltNm: form.facltNm,
       addr1: form.addr1,
@@ -242,11 +274,10 @@ export default function CampsiteFormPage() {
       autoSiteCo: form.autoSiteCo,
       glampSiteCo: form.glampSiteCo,
       lineIntro: form.lineIntro.trim(),
-      firstImageUrl: form.firstImageUrl.trim(),
       homepage: form.homepage || undefined,
     };
     try {
-      await createCampsite(payload);
+      await createCampsite(payload, newFiles);
       navigate("/business/campsites");
     } catch (err) {
       const axiosErr = err as AxiosError<{ message?: string; errors?: ValidationErrorItem[] }>;
@@ -417,16 +448,60 @@ export default function CampsiteFormPage() {
           </div>
 
           <div>
-            <label className="text-sm font-semibold mb-1.5 block">대표 이미지 URL</label>
-            <input
-              type="text"
-              value={form.firstImageUrl}
-              onChange={updateField("firstImageUrl")}
-              placeholder="https://..."
-              className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
-            />
-            {attemptedSubmit && fieldError.firstImageUrl && (
-              <p className="text-xs text-destructive mt-1.5">{fieldError.firstImageUrl}</p>
+            <label className="text-sm font-semibold mb-1.5 block">
+              캠핑장 사진{" "}
+              <span className="text-xs font-normal text-muted-foreground">({imageCount}/{MAX_IMAGES})</span>
+            </label>
+            <p className="text-xs text-muted-foreground mb-2">첫 번째 사진이 대표 이미지로 사용됩니다.</p>
+            <div className="flex flex-wrap gap-3">
+              {/* 기존 이미지(수정 모드): 지우면 keepImageUrls 에서 빠져 서버에서도 삭제된다 */}
+              {keepImageUrls.map((url) => (
+                <div key={url} className="relative w-24 h-24 rounded-xl overflow-hidden border border-border">
+                  <img src={resolveImageUrl(url)} alt="캠핑장 사진" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setKeepImageUrls((prev) => prev.filter((u) => u !== url))}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-all"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+
+              {/* 새로 고른 파일: 아직 업로드 전이라 로컬 미리보기(objectURL)로 보여준다 */}
+              {newFiles.map((file, i) => (
+                <div key={`${file.name}-${i}`} className="relative w-24 h-24 rounded-xl overflow-hidden border border-border">
+                  <img src={previewUrls[i]} alt={file.name} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setNewFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-all"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+
+              {imageCount < MAX_IMAGES && (
+                <label className="w-24 h-24 rounded-xl border border-dashed border-border flex flex-col items-center justify-center gap-1 cursor-pointer text-muted-foreground hover:border-primary hover:text-primary transition-all">
+                  <ImagePlus size={18} />
+                  <span className="text-xs">추가</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      setErrorMsg(null);
+                      onPickFiles(e.target.files);
+                      e.target.value = ""; // 같은 파일을 연속으로 고를 수 있게 초기화
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+            {attemptedSubmit && fieldError.image && (
+              <p className="text-xs text-destructive mt-1.5">{fieldError.image}</p>
             )}
           </div>
 

@@ -9,6 +9,9 @@ export interface Camp {
   mapX: number;
   mapY: number;
   firstImageUrl: string;
+  // 캠핑장 이미지 전체(갤러리). 상세 조회(GET /v1/camps/{campId})에서만 채워지고, 목록에서는 없음(undefined).
+  // 직접 등록한 캠핑장의 업로드 이미지만 담긴다(고캠핑 캠핑장은 빈 배열).
+  imageUrls?: string[];
   induty: string;           // 야영장 유형 (일반야영장, 글램핑, 오토캠핑장...)
   gnrlSiteCo: number;       // 일반사이트 수
   autoSiteCo: number;       // 자동차야영장 수
