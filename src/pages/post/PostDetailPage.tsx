@@ -99,6 +99,8 @@ export default function PostDetailPage() {
     mutationFn: () => deletePost(postId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
+      // 마이페이지의 "내가 쓴 게시글" 목록도 함께 갱신해 삭제된 글이 남지 않게 한다.
+      queryClient.invalidateQueries({ queryKey: ["myPosts"] });
       queryClient.removeQueries({ queryKey: ["post", postId] });
       navigate("/posts");
     },
