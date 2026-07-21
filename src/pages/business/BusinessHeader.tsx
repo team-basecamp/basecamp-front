@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tent, TrendingUp, Calendar, Star } from "lucide-react";
-import { CAMPS } from "../../data/camps";
+import { getMyCampsites } from "../../api/campsite";
 import {
   getReservationStats,
   type ReservationStats,
@@ -16,10 +16,6 @@ import {
  * - active prop으로 현재 탭을 표시하고, 탭 클릭 시 해당 라우트로 이동
  */
 export type BusinessTab = "campsites" | "reservations" | "reviews" | "sales";
-
-// mock 로그인 캠핑업체 계정의 id (ERD의 users.user_id / camps.owner_id에 대응).
-// 실제 로그인 연동 전이라 고정값으로 사용 - CAMPS 중 ownerId가 이 값인 캠핑장들이 "내 캠핑장"이 됨.
-export const MY_OWNER_ID = 1;
 
 const TAB_ROUTES: Record<BusinessTab, string> = {
   campsites: "/business/campsites",
@@ -57,19 +53,20 @@ export { MONTHLY_REVENUE, formatKRW };
 export default function BusinessHeader({ active }: { active: BusinessTab }) {
   const navigate = useNavigate();
   const [stats, setStats] = useState<ReservationStats | null>(null);
+  const [myCampsCount, setMyCampsCount] = useState(0);
   const currentMonthLabel = `${new Date().getMonth() + 1}월`;
-  
+
   useEffect(() => {
     getReservationStats()
       .then(data => { console.log('stats:', data); setStats(data); })  // ← 이 호출
       .catch(err => console.error('통계 조회 실패', err));
   }, []);
 
-
-  const myCamps = CAMPS.filter((c) => c.ownerId === MY_OWNER_ID); // 내 캠핑장 전체 (여러 개일 수 있음)
-  const avgRating = myCamps.length
-    ? (myCamps.reduce((s, c) => s + c.rating, 0) / myCamps.length).toFixed(1)
-    : "—";
+  useEffect(() => {
+    getMyCampsites()
+      .then((res) => setMyCampsCount(res.data?.length ?? 0))
+      .catch((err) => console.error("내 캠핑장 조회 실패", err));
+  }, []);
   const pendingCount = stats?.pendingCount ?? 0;
 
   return (
@@ -102,7 +99,7 @@ export default function BusinessHeader({ active }: { active: BusinessTab }) {
             // "신규 예약" 기준임을 라벨에 드러낸다. (ReservationService.getReservationStats)
             { label: "이번달 신규 예약 매출", value: `₩${stats.monthlyRevenue.toLocaleString()}`, sub: `${currentMonthLabel} 신청 기준`, color: "text-primary" },
             { label: "이번달 신규 예약", value: `${stats.monthlyReservations}건`, sub: `${currentMonthLabel} 신청 기준`, color: "text-foreground" },
-            { label: "평균 평점", value: stats.averageRating ?? '-', sub: `보유 캠핑장 ${myCamps.length}곳`, color: "text-accent" },
+            { label: "평균 평점", value: stats.averageRating ?? '-', sub: `보유 캠핑장 ${myCampsCount}곳`, color: "text-accent" },
             { label: "누적 예약", value: `${stats.yearlyReservations}건`, sub: "올해", color: "text-chart-3" },
           ].map((card) => (
             <div key={card.label} className="bg-card border border-border rounded-2xl p-5">
