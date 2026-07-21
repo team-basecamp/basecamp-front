@@ -4,6 +4,8 @@ import { Plus, Edit3, Tent, Trash2 } from "lucide-react";
 import type { AxiosError } from "axios";
 import { getMyCampsites, deleteCampsite } from "../../api/campsite";
 import BusinessHeader from "./BusinessHeader";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
+import NoticeDialog from "../../components/common/NoticeDialog";
 import type { Camp } from "../../types";
 
 /**
@@ -21,6 +23,8 @@ export default function CampsiteManagePage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  // 삭제 확인 모달의 대상 캠핑장 id. null 이면 모달이 닫힌 상태다.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   useEffect(() => {
     getMyCampsites()
@@ -30,15 +34,16 @@ export default function CampsiteManagePage() {
   }, []);
 
   const onDelete = async (campId: number) => {
-    if (!window.confirm("이 캠핑장을 삭제하시겠습니까? 삭제하면 되돌릴 수 없습니다.")) return;
-
     setErrorMsg(null);
     setDeletingId(campId);
     try {
       await deleteCampsite(campId);
       setMyCamps((prev) => prev.filter((camp) => (camp.campId ?? camp.contentId) !== campId));
+      setConfirmDeleteId(null);
     } catch (err) {
       const axiosErr = err as AxiosError<{ message?: string }>;
+      // 실패 안내는 확인 모달을 닫고 공지 모달로 보여준다.
+      setConfirmDeleteId(null);
       setErrorMsg(axiosErr.response?.data?.message || "캠핑장 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       setDeletingId(null);
@@ -57,12 +62,6 @@ export default function CampsiteManagePage() {
           <Plus size={14} /> 새 캠핑장 등록
         </button>
       </div>
-
-      {errorMsg && (
-        <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {errorMsg}
-        </div>
-      )}
 
       <div className="space-y-4">
         {myCamps.map((camp) => {
@@ -97,7 +96,7 @@ export default function CampsiteManagePage() {
                     <Edit3 size={14} /> 정보 수정
                   </button>
                   <button
-                    onClick={() => onDelete(id)}
+                    onClick={() => setConfirmDeleteId(id)}
                     disabled={deletingId === id}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:border-destructive hover:text-destructive transition-all disabled:opacity-50"
                   >
@@ -115,6 +114,25 @@ export default function CampsiteManagePage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(o) => !o && setConfirmDeleteId(null)}
+        title="이 캠핑장을 삭제할까요?"
+        description="삭제하면 되돌릴 수 없습니다. 등록한 사이트 정보도 함께 사라집니다."
+        confirmLabel="삭제하기"
+        pendingLabel="삭제 중…"
+        onConfirm={() => confirmDeleteId !== null && onDelete(confirmDeleteId)}
+        isPending={deletingId !== null}
+      />
+
+      <NoticeDialog
+        open={!!errorMsg}
+        onOpenChange={(o) => !o && setErrorMsg(null)}
+        variant="error"
+        title="문제가 발생했어요"
+        description={errorMsg ?? undefined}
+      />
     </div>
   );
 }

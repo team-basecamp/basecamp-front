@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, X, ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react";
-import type { AxiosError } from "axios";
+import { Check, X, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   getCampOwnerApplications,
   approveCampOwnerApplication,
@@ -9,7 +8,6 @@ import {
   type ApplicationStatus,
   type CampOwnerApplication,
 } from "../../api/campOwner";
-import { fetchGocampingCamps } from "../../api/campsite";
 import { getApiErrorMessage } from "../../lib/apiError";
 import AdminHeader from "./AdminHeader";
 
@@ -18,8 +16,6 @@ import AdminHeader from "./AdminHeader";
  * - 상태별(심사 중/승인/반려) 신청 목록을 조회한다.
  * - 심사 중(PENDING) 건은 승인/반려할 수 있다. 반려 시 사유를 함께 입력한다.
  * - 승인하면 회원이 CAMP_OWNER 로 승격되고, 그 회원의 기존 토큰은 서버에서 즉시 무효화된다.
- * - "고캠핑 API 불러오기" 버튼은 신청 심사와 무관하지만, 관리자 전용 캠핑장 데이터 관리 기능을
- *   둘 별도 화면이 없어 이 페이지에 함께 둔다 (POST /v1/camps/fetch, ADMIN 전용).
  */
 
 const STATUS_TABS: { key: ApplicationStatus; label: string }[] = [
@@ -49,67 +45,9 @@ export default function CampOwnerApplicationsPage() {
     queryFn: () => getCampOwnerApplications(status, page),
   });
 
-  const [syncMsg, setSyncMsg] = useState<string | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
-
-  const syncGocamping = useMutation({
-    mutationFn: fetchGocampingCamps,
-    onSuccess: (message) => {
-      setSyncError(null);
-      setSyncMsg(message);
-    },
-    onError: (err) => {
-      setSyncMsg(null);
-      // 이 엔드포인트는 실패 시 JSON이 아닌 순수 텍스트를 응답 본문으로 그대로 돌려준다.
-      const axiosErr = err as AxiosError<string>;
-      const rawText = typeof axiosErr.response?.data === "string" ? axiosErr.response.data : undefined;
-      setSyncError(rawText || getApiErrorMessage(err, "고캠핑 API 동기화에 실패했습니다."));
-    },
-  });
-
-  const onSyncGocamping = () => {
-    if (
-      !window.confirm(
-        "고캠핑 API 전체 데이터를 다시 불러오시겠습니까?\n데이터 양에 따라 시간이 오래 걸릴 수 있습니다."
-      )
-    )
-      return;
-    setSyncMsg(null);
-    setSyncError(null);
-    syncGocamping.mutate();
-  };
-
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
       <AdminHeader active="campOwner" />
-
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={onSyncGocamping}
-          disabled={syncGocamping.isPending}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:border-primary hover:text-primary transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-        >
-          {syncGocamping.isPending ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-          {syncGocamping.isPending ? "고캠핑 API 불러오는 중…" : "고캠핑 API 불러오기"}
-        </button>
-      </div>
-
-      {syncGocamping.isPending && (
-        <div className="mb-4 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
-          <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin shrink-0" />
-          고캠핑 API 전체 데이터를 불러오는 중입니다. 데이터 양에 따라 몇 분 정도 걸릴 수 있어요. 완료될 때까지 이 창을 벗어나지 마세요.
-        </div>
-      )}
-      {!syncGocamping.isPending && syncMsg && (
-        <div className="mb-4 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
-          {syncMsg}
-        </div>
-      )}
-      {!syncGocamping.isPending && syncError && (
-        <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {syncError}
-        </div>
-      )}
 
       {/* Status filter */}
       <div className="flex gap-1 mb-5 bg-muted rounded-xl p-1 max-w-md">

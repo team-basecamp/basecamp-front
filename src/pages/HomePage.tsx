@@ -8,7 +8,7 @@ import { getHotCampsites, getCampsites } from "../api/campsite";
 import type { Camp } from "../types";
 import "./HomePage.css";
 
-const QUICK_TAGS = ["강원 숲속", "제주 힐링", "가평 계곡", "글램핑", "오션뷰", "반려동물"];
+const QUICK_TAGS = ["강원", "제주", "가평", "글램핑", "오션뷰", "카라반"];
 
 type HotSort = "rating" | "reservationCount";
 
@@ -109,21 +109,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Stats strip ── */}
-      <section className="bg-primary text-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 grid grid-cols-3 gap-4 text-center">
-          {[
-            { value: "1,284", label: "등록 캠핑장" },
-            { value: "48,200+", label: "누적 후기" },
-            { value: "210,000", label: "월 방문자" },
-          ].map((s) => (
-            <div key={s.label} className="flex flex-col items-center gap-0.5">
-              <span className="text-xl font-bold" style={{ fontFamily: "'DM Mono', monospace" }}>{s.value}</span>
-              <span className="text-xs text-white/70">{s.label}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+
 
       {/* ── Hot 캠핑장 (평점순/예약건수순) ── */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
