@@ -99,6 +99,8 @@ export default function PostDetailPage() {
     mutationFn: () => deletePost(postId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
+      // 마이페이지의 "내가 쓴 게시글" 목록도 함께 갱신해 삭제된 글이 남지 않게 한다.
+      queryClient.invalidateQueries({ queryKey: ["myPosts"] });
       queryClient.removeQueries({ queryKey: ["post", postId] });
       navigate("/posts");
     },
@@ -307,7 +309,7 @@ export default function PostDetailPage() {
               return (
                 <div key={comment.commentId} className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden">
-                    {avatarUrl && !isRemoved ? (
+                    {avatarUrl ? (
                       <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
                       comment.nickname[0]
@@ -371,11 +373,11 @@ export default function PostDetailPage() {
         {/* Comment input */}
         <div className="border-t border-border pt-5">
           {user ? (
-            <div className="flex gap-3 items-end">
+            <div className="flex gap-3 items-center">
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
                 {user.nickname[0].toUpperCase()}
               </div>
-              <div className="flex-1 bg-muted rounded-2xl flex items-end gap-2 px-4 py-3">
+              <div className="flex-1 bg-muted rounded-2xl flex items-center gap-2 px-4 py-3">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
