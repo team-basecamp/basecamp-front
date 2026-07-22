@@ -113,16 +113,26 @@ instance.interceptors.response.use(
     const original = err.config as RetriableConfig | undefined;
     const hadSession = useAuthStore.getState().accessToken !== null;
 
+    // 재발급으로 해소될 수 있는 인증 실패:
+    // - 401: access 토큰 만료.
+    // - 403 A007(BLACKLISTED_USER): 회원 단위로 무효화된 토큰. 관리자 승격(#53) 직후가 대표적이다 —
+    //   현재 토큰은 아직 CUSTOMER 라 revoke 목록에 걸리지만, 재발급은 서버가 DB role 을 다시 읽어
+    //   CAMP_OWNER 토큰을 내주므로 원요청이 통과한다(useRole 이 토큰에서 role 을 읽어 헤더 메뉴까지 최신화된다).
+    //   반대로 진짜 제재된 회원은 재발급 자체가 403(BLACKLISTED_USER)으로 막혀 아래 catch 에서 로그아웃된다.
+    const code = (err.response?.data as { code?: string } | undefined)?.code;
+    const isRefreshable =
+      err.response?.status === 401 || (err.response?.status === 403 && code === "A007");
+
     const canRetry =
-      err.response?.status === 401 &&
+      isRefreshable &&
       original !== undefined &&
       !original._retry &&
       !isRefreshExempt(original.url) &&
       hadSession;
 
     if (!canRetry) {
-      // 재시도 후에도 401 이거나, 애초에 재발급 대상이 아닌 401 → 세션이 있었다면 정리한다.
-      if (err.response?.status === 401 && hadSession) forceLogout();
+      // 재시도 후에도 인증 실패거나, 애초에 재발급 대상이 아닌 401/403(A007) → 세션이 있었다면 정리한다.
+      if (isRefreshable && hadSession) forceLogout();
       return Promise.reject(err);
     }
 
