@@ -165,7 +165,7 @@ export default function HomePage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
               { icon: "🌲", label: "일반야영장", count: 432, induty: "일반야영장" },
-              { icon: "🚗", label: "오토캠핑장", count: 387, induty: "자동차야영장" },
+              { icon: "🚗", label: "오토캠핑장", count: 387, induty: "오토캠핑" },
               { icon: "⛺", label: "글램핑", count: 218, induty: "글램핑" },
               { icon: "🚐", label: "카라반", count: 97, induty: "카라반" },
             ].map((cat) => (

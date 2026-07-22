@@ -5,6 +5,7 @@ import { useKakaoLoader } from "react-kakao-maps-sdk";
 import { MapPin, Star } from "lucide-react";
 import { CAMPS } from "../../data/camps";
 import { getCampsites } from "../../api/campsite";
+import { campKey } from "../../lib/camp";
 import type { Camp } from "../../types";
 
 /**
@@ -32,7 +33,9 @@ export default function MapPage() {
       .catch(() => setCamps(CAMPS));
   }, []);
 
-  const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.contentId}`);
+  // 자체 등록 캠핑장은 contentId가 null이라 campId로 식별해야 한다(상세 라우트는 파라미터명만
+  // :contentId일 뿐 실제로는 campId를 받는다). CampsiteListPage와 동일하게 campKey로 통일한다.
+  const onCampClick = (camp: Camp) => navigate(`/campsites/${campKey(camp)}`);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -58,7 +61,7 @@ export default function MapPage() {
             >
               {camps.filter((camp) => camp.mapY != null && camp.mapX != null).map((camp) => (
                 <MapMarker
-                  key={camp.contentId}
+                  key={campKey(camp)}
                   position={{ lat: camp.mapY, lng: camp.mapX }}
                   onClick={() => setSelected(camp)}
                   title={camp.facltNm}
@@ -72,11 +75,10 @@ export default function MapPage() {
         <div className="space-y-3 max-h-[420px] lg:max-h-[560px] overflow-y-auto pr-1">
           {camps.map((camp) => (
             <div
-              key={camp.contentId}
+              key={campKey(camp)}
               onClick={() => setSelected(camp)}
-              className={`bg-card border rounded-2xl p-4 cursor-pointer transition-all ${
-                selected?.contentId === camp.contentId ? "border-primary shadow-sm" : "border-border hover:border-primary/30"
-              }`}
+              className={`bg-card border rounded-2xl p-4 cursor-pointer transition-all ${selected && campKey(selected) === campKey(camp) ? "border-primary shadow-sm" : "border-border hover:border-primary/30"
+                }`}
             >
               <div className="flex gap-3">
                 {camp.image || camp.firstImageUrl ? (
@@ -100,7 +102,7 @@ export default function MapPage() {
                   </div>
                 </div>
               </div>
-              {selected?.contentId === camp.contentId && (
+              {selected && campKey(selected) === campKey(camp) && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onCampClick(camp); }}
                   className="w-full mt-3 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all"
