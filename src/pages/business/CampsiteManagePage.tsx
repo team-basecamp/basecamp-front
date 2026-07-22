@@ -29,7 +29,14 @@ export default function CampsiteManagePage() {
   useEffect(() => {
     getMyCampsites()
       .then((res: any) => setMyCamps(res ?? []))
-      .catch(() => setErrorMsg("캠핑장 목록을 불러오지 못했습니다."))
+      .catch((err) => {
+        // 목록 조회 실패는 모달로 막지 않는다. 등록한 캠핑장이 없는 상태와 화면상 구분이 안 되는데,
+        // 첫 진입부터 에러 모달이 뜨면 "아직 등록 안 한 상태"가 고장난 것처럼 보이기 때문이다.
+        // 빈 목록으로 두면 아래 안내("등록된 캠핑장이 없습니다")가 그대로 나온다.
+        // 진짜 통신 오류는 조용히 넘기지 말고 콘솔에 남겨 디버깅할 수 있게 한다.
+        console.error("[CampsiteManagePage] 캠핑장 목록 조회 실패", err);
+        setMyCamps([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 

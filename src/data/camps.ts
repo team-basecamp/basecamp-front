@@ -252,11 +252,14 @@ export const HOT_CAMPS = [...CAMPS].sort((a, b) => b.rating - a.rating).slice(0,
 export const REGIONS = ["전체", "서울", "경기", "제주", "부산", "대전", "대구", "강원", "충남", "전남광주", "경북", "경남"];
 
 // label: 화면에 보여줄 이름 / value: 실제 induty 필터링에 쓰이는 값
-// 고캠핑 원본 데이터의 오토캠핑 유형은 "자동차야영장"으로 저장되어 있어 value를 분리함
+// 오토캠핑만 label과 value가 다르다. DB에는 "오토캠핑"으로 저장돼 있고, 캠핑장 등록 폼
+// (CampsiteFormPage의 INDUTY_OPTIONS)은 "오토캠핑장"으로 저장한다. 백엔드 induty 필터가
+// 부분 일치(LIKE)라서 짧은 쪽인 "오토캠핑"으로 두면 두 표기를 모두 잡는다.
+// ("오토캠핑장"으로 두면 DB의 "오토캠핑"보다 길어 한 건도 매칭되지 않는다.)
 export const INDUTY_TYPES: { label: string; value: string }[] = [
   { label: "전체", value: "전체" },
   { label: "일반야영장", value: "일반야영장" },
-  { label: "오토캠핑장", value: "자동차야영장" },
+  { label: "오토캠핑장", value: "오토캠핑" },
   { label: "글램핑", value: "글램핑" },
   { label: "카라반", value: "카라반" },
 ];
