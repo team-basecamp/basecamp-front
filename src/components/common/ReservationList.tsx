@@ -14,6 +14,16 @@ import {
 } from "../../api/reservation";
 import { getCampsiteDetail } from "../../api/campsite";
 import ReservationCard from "./ReservationCard";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "./alert-dialog";
 
 export default function ReservationList() {
   const navigate = useNavigate();
@@ -22,6 +32,7 @@ export default function ReservationList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [cancelTargetId, setCancelTargetId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,8 +47,12 @@ export default function ReservationList() {
 
   const onCampClick = (campId: number) => navigate(`/campsites/${campId}`);
 
-  const onCancel = async (reservationId: number) => {
-    if (!window.confirm("예약을 취소하시겠습니까?")) return;
+  const onCancel = (reservationId: number) => setCancelTargetId(reservationId);
+
+  const confirmCancel = async () => {
+    if (cancelTargetId === null) return;
+    const reservationId = cancelTargetId;
+    setCancelTargetId(null);
 
     setProcessingId(reservationId);
     setError(null);
@@ -109,6 +124,19 @@ export default function ReservationList() {
           onReview={onReview}
         />
       ))}
+
+      <AlertDialog open={cancelTargetId !== null} onOpenChange={(o) => !o && setCancelTargetId(null)}>
+        <AlertDialogContent className="max-w-sm rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>예약 취소</AlertDialogTitle>
+            <AlertDialogDescription>예약을 취소하시겠습니까?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>아니오</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancel}>예</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
