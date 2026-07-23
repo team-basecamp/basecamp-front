@@ -8,7 +8,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type MemberRole = "CUSTOMER" | "BUSINESS" | "ADMIN";
+/** 백엔드 com.basecamp.backend.common.enums.Role 과 문자열이 정확히 일치해야 한다. */
+export type MemberRole = "CUSTOMER" | "CAMP_OWNER" | "ADMIN";
+
+/** 소셜 로그인 제공자(백엔드 Provider enum과 동일 표기). 프로필 아바타 로고 표시 등에 사용. */
+export type SocialProvider = "KAKAO" | "GOOGLE" | "NAVER";
 
 export interface AuthUser {
   memberId: number;
@@ -16,12 +20,15 @@ export interface AuthUser {
   email?: string;
   profileImage?: string;
   role: MemberRole;
+  provider?: SocialProvider;
 }
 
 interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
   setUser: (user: AuthUser, accessToken?: string) => void;
+  /** 토큰 재발급 시 user 는 그대로 두고 accessToken 만 교체한다. */
+  setAccessToken: (accessToken: string) => void;
   logout: () => void;
 }
 
@@ -31,6 +38,7 @@ const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       setUser: (user, accessToken) => set({ user, accessToken: accessToken ?? null }),
+      setAccessToken: (accessToken) => set({ accessToken }),
       logout: () => set({ user: null, accessToken: null }),
     }),
     { name: "auth-storage" }

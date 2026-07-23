@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import useAuthStore from "../../store/authStore";
+import { getKakaoAuthorizeUrl, getNaverAuthorizeUrl, getNaverLoginState, getGoogleAuthorizeUrl } from "../../api/auth";
 import "./LoginPage.css";
 
 function BasecampLogo({ size = 40 }: { size?: number }) {
@@ -21,12 +21,25 @@ function BasecampLogo({ size = 40 }: { size?: number }) {
  */
 export default function LoginPage() {
   const navigate = useNavigate();
-  const setUser = useAuthStore((s) => s.setUser);
 
-  // 실제 소셜 로그인 연동 전까지, 클릭한 provider의 닉네임으로 mock 로그인 처리
-  const onLogin = (nickname: string) => {
-    setUser({ memberId: Date.now(), nickname, role: "CUSTOMER" }, "mock-access-token");
-    navigate("/");
+  // 카카오는 실제 OAuth 연동: 카카오 authorize 페이지로 이동 → 콜백(/oauth/kakao/callback)에서 백엔드 로그인 처리.
+  const onKakaoLogin = () => {
+    window.location.href = getKakaoAuthorizeUrl();
+  };
+
+  // 네이버는 CSRF 방지용 state 를 서버에서 발급받아 authorize 로 이동 → 콜백/백엔드에서 서버가 state 를 검증한다.
+  const onNaverLogin = async () => {
+    try {
+      const { state } = await getNaverLoginState();
+      window.location.href = getNaverAuthorizeUrl(state);
+    } catch {
+      alert("네이버 로그인을 시작할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+    }
+  };
+
+  // 구글은 state 없이 카카오와 동일: authorize 로 이동 → 콜백(/oauth/google/callback)에서 백엔드 로그인 처리.
+  const onGoogleLogin = () => {
+    window.location.href = getGoogleAuthorizeUrl();
   };
 
   return (
@@ -77,7 +90,7 @@ export default function LoginPage() {
           {/* Social login */}
           <div className="space-y-3">
             <button
-              onClick={() => onLogin("카카오 사용자")}
+              onClick={onKakaoLogin}
               className="social-btn w-full flex items-center justify-center gap-3 py-3 rounded-xl font-semibold text-sm"
               style={{ backgroundColor: "#FEE500", color: "#191919" }}
             >
@@ -88,7 +101,7 @@ export default function LoginPage() {
             </button>
 
             <button
-              onClick={() => onLogin("네이버 사용자")}
+              onClick={onNaverLogin}
               className="social-btn w-full flex items-center justify-center gap-3 py-3 rounded-xl font-semibold text-sm text-white"
               style={{ backgroundColor: "#03C75A" }}
             >
@@ -97,7 +110,7 @@ export default function LoginPage() {
             </button>
 
             <button
-              onClick={() => onLogin("Google 사용자")}
+              onClick={onGoogleLogin}
               className="social-btn w-full flex items-center justify-center gap-3 py-3 rounded-xl font-semibold text-sm bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
             >
               <svg width="18" height="18" viewBox="0 0 18 18">

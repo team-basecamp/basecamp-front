@@ -1,37 +1,56 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Star, Users, ChevronRight, TrendingUp, MapPin } from "lucide-react";
 import CampCard from "../components/common/CampCard";
+import RegionWeatherWidget from "../components/common/RegionWeatherWidget";
 import { CAMPS } from "../data/camps";
+import { getHotCampsites, getCampsites } from "../api/campsite";
 import type { Camp } from "../types";
 import "./HomePage.css";
 
-const QUICK_TAGS = ["강원 숲속", "제주 힐링", "가평 계곡", "글램핑", "오션뷰", "반려동물"];
+const QUICK_TAGS = ["강원", "제주", "가평", "글램핑", "오션뷰", "카라반"];
 
 type HotSort = "rating" | "reservationCount";
 
 /**
  * 메인 홈페이지 (/)
- * - 히어로 검색창, 인기(HOT) 캠핑장, 유형별 카테고리, 최근 등록 캠핑장을 한 화면에 소개
- * - 캠핑장 데이터는 data/camps.ts의 mock 데이터(CAMPS)를 그대로 사용 (백엔드 연동 전 임시 데이터)
- * - 검색/카테고리/태그 클릭 시 실제 필터링은 하지 않고 /campsites?q=... 로 이동만 시키며, 필터링은 CampsiteListPage에서 처리
+ * - 히어로 검색창, 인기(HOT) 캠핑장, 유형별 카테고리, 최근 등록 캠핑장, 시·도별 날씨를 한 화면에 소개
+ * - HOT/최근 등록 캠핑장은 백엔드(GET /v1/camps/hot, /v1/camps/search?sort=recent)에서 조회하고,
+ *   실패 시 data/camps.ts의 mock 데이터(CAMPS)로 폴백
+ * - 검색/카테고리/태그 클릭 시 실제 필터링은 하지 않고 /campsites?... 로 이동만 시키며, 필터링은 CampsiteListPage에서 처리
  */
 export default function HomePage() {
   const [query, setQuery] = useState(""); // 검색창 입력값
   const [hotSort, setHotSort] = useState<HotSort>("rating"); // 인기 캠핑장 정렬 기준 (평점순 / 예약건수순)
+  const [hotCamps, setHotCamps] = useState<Camp[]>([]);
+  const [recentCamps, setRecentCamps] = useState<Camp[]>([]);
   const navigate = useNavigate();
 
-  const hotCamps = [...CAMPS]
-    .sort((a, b) =>
-      hotSort === "rating"
-        ? b.rating - a.rating
-        : (b.reservationCount ?? 0) - (a.reservationCount ?? 0)
-    )
-    .slice(0, 4);
+  useEffect(() => {
+    getHotCampsites(hotSort, 4)
+      .then((res: any) => setHotCamps(res.content ?? []))
+      .catch(() => {
+        setHotCamps(
+          [...CAMPS]
+            .sort((a, b) =>
+              hotSort === "rating"
+                ? b.rating - a.rating
+                : (b.reservationCount ?? 0) - (a.reservationCount ?? 0)
+            )
+            .slice(0, 4)
+        );
+      });
+  }, [hotSort]);
+
+  useEffect(() => {
+    getCampsites({ sort: "recent", numOfRows: 3 })
+      .then((res: any) => setRecentCamps(res.content ?? []))
+      .catch(() => setRecentCamps(CAMPS.slice(4, 7)));
+  }, []);
 
   const onSearch = (q: string) => navigate(`/campsites?q=${encodeURIComponent(q)}`);
-  const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.contentId}`);
-  const onLoginClick = () => navigate("/login");
+  const onCategoryClick = (induty: string) => navigate(`/campsites?induty=${encodeURIComponent(induty)}`);
+  const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.campId}`);
 
   return (
     <div>
@@ -90,21 +109,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Stats strip ── */}
-      <section className="bg-primary text-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 grid grid-cols-3 gap-4 text-center">
-          {[
-            { value: "1,284", label: "등록 캠핑장" },
-            { value: "48,200+", label: "누적 후기" },
-            { value: "210,000", label: "월 방문자" },
-          ].map((s) => (
-            <div key={s.label} className="flex flex-col items-center gap-0.5">
-              <span className="text-xl font-bold" style={{ fontFamily: "'DM Mono', monospace" }}>{s.value}</span>
-              <span className="text-xs text-white/70">{s.label}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+
 
       {/* ── Hot 캠핑장 (평점순/예약건수순) ── */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
@@ -131,9 +136,8 @@ export default function HomePage() {
                 <button
                   key={opt.key}
                   onClick={() => setHotSort(opt.key)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    hotSort === opt.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${hotSort === opt.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   {opt.label}
                 </button>
@@ -147,7 +151,7 @@ export default function HomePage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {hotCamps.map((camp) => (
-            <CampCard key={camp.contentId} camp={camp} onClick={() => onCampClick(camp)} />
+            <CampCard key={camp.campId} camp={camp} onClick={() => onCampClick(camp)} />
           ))}
         </div>
       </section>
@@ -160,14 +164,14 @@ export default function HomePage() {
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { icon: "🌲", label: "일반야영장", count: 432, query: "일반야영장" },
-              { icon: "🚗", label: "오토캠핑장", count: 387, query: "오토캠핑장" },
-              { icon: "⛺", label: "글램핑", count: 218, query: "글램핑" },
-              { icon: "🚐", label: "카라반", count: 97, query: "카라반" },
+              { icon: "🌲", label: "일반야영장", count: 432, induty: "일반야영장" },
+              { icon: "🚗", label: "오토캠핑장", count: 387, induty: "오토캠핑" },
+              { icon: "⛺", label: "글램핑", count: 218, induty: "글램핑" },
+              { icon: "🚐", label: "카라반", count: 97, induty: "카라반" },
             ].map((cat) => (
               <button
                 key={cat.label}
-                onClick={() => onSearch(cat.query)}
+                onClick={() => onCategoryClick(cat.induty)}
                 className="bg-card border border-border rounded-2xl p-5 text-left hover:border-primary/40 hover:shadow-sm transition-all group"
               >
                 <span className="text-3xl mb-3 block">{cat.icon}</span>
@@ -196,37 +200,14 @@ export default function HomePage() {
           </button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {CAMPS.slice(4, 7).map((camp) => (
-            <CampCard key={camp.contentId} camp={camp} onClick={() => onCampClick(camp)} />
+          {recentCamps.map((camp) => (
+            <CampCard key={camp.campId} camp={camp} onClick={() => onCampClick(camp)} />
           ))}
         </div>
       </section>
 
-      {/* ── CTA Banner ── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16">
-        <div
-          className="relative rounded-3xl overflow-hidden p-12 text-white text-center"
-          style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1A4033 100%)" }}
-        >
-          <div className="absolute inset-0 opacity-10"
-            style={{ backgroundImage: "url('https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=1200&h=400&fit=crop&auto=format')", backgroundSize: "cover", backgroundPosition: "center" }}
-          />
-          <div className="relative">
-            <h2 className="text-3xl font-bold mb-3" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              나만의 캠핑 후기를 공유하세요
-            </h2>
-            <p className="text-white/70 mb-8 max-w-md mx-auto text-sm">
-              직접 다녀온 캠핑장 후기를 남기고 다른 캠퍼들과 정보를 공유하세요
-            </p>
-            <button
-              onClick={onLoginClick}
-              className="px-8 py-3 rounded-xl bg-white text-primary font-bold text-sm hover:bg-white/90 transition-all"
-            >
-              무료로 시작하기
-            </button>
-          </div>
-        </div>
-      </section>
+      {/* ── 시·도별 날씨 ── */}
+      <RegionWeatherWidget />
     </div>
   );
 }

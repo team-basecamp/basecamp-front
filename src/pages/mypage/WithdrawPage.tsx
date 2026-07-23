@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, AlertTriangle, CheckCircle } from "lucide-react";
+import { withdraw } from "../../api/auth";
 import RequireLogin from "../../components/common/RequireLogin";
+import { getApiErrorMessage } from "../../lib/apiError";
 import useAuthStore from "../../store/authStore";
 
 const REASON_OPTIONS = [
@@ -26,19 +28,31 @@ export default function WithdrawPage() {
   const [detail, setDetail] = useState(""); // 사유가 "기타"일 때 직접 입력하는 텍스트
   // form: 사유 선택 화면 / confirm: 최종 확인 화면 / done: 탈퇴 완료 화면
   const [step, setStep] = useState<"form" | "confirm" | "done">("form");
-
-  if (!user) return <RequireLogin />;
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const finalReason = reason === "기타" ? detail.trim() : reason;
   const canSubmit = reason !== "" && (reason !== "기타" || detail.trim().length > 0);
 
   // confirm 단계에서 "탈퇴 확정"을 눌렀을 때만 호출되는 실제 탈퇴 처리 (form 단계의 "탈퇴 신청하기"는 confirm 단계로 넘어갈 뿐 아직 탈퇴를 확정하지 않음)
-  const confirmWithdraw = () => {
-    // Mock 탈퇴 처리 — 실제 백엔드 연동 시 api/auth.ts의 withdraw(finalReason) 호출로 교체
-    logout();
-    setStep("done");
+  const confirmWithdraw = async () => {
+    // 중복 클릭 방지: 두 번째 요청은 이미 탈퇴한 회원이라 404 가 난다.
+    if (submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      // 서버가 soft delete 처리 후 refresh 토큰을 폐기하고 쿠키를 삭제한다.
+      await withdraw(finalReason);
+      logout();
+      setStep("done");
+    } catch (err) {
+      setError(getApiErrorMessage(err, "탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
+  // 탈퇴 성공 시 user 가 비워지므로, 로그인 검사보다 완료 화면을 먼저 처리해야 RequireLogin 으로 튕기지 않는다.
   if (step === "done") {
     return (
       <div className="max-w-lg mx-auto px-4 sm:px-6 py-20 text-center">
@@ -54,6 +68,8 @@ export default function WithdrawPage() {
       </div>
     );
   }
+
+  if (!user) return <RequireLogin />;
 
   return (
     <div className="max-w-lg mx-auto px-4 sm:px-6 py-10">
@@ -121,12 +137,22 @@ export default function WithdrawPage() {
               </p>
             </div>
           </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+
           <div className="flex gap-2">
-            <button onClick={() => setStep("form")} className="flex-1 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground transition-all">
+            <button
+              onClick={() => setStep("form")}
+              disabled={submitting}
+              className="flex-1 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground transition-all disabled:opacity-40"
+            >
               취소
             </button>
-            <button onClick={confirmWithdraw} className="flex-1 py-2.5 rounded-xl bg-destructive text-white text-sm font-semibold hover:bg-destructive/90 transition-all">
-              탈퇴 확정
+            <button
+              onClick={() => void confirmWithdraw()}
+              disabled={submitting}
+              className="flex-1 py-2.5 rounded-xl bg-destructive text-white text-sm font-semibold hover:bg-destructive/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {submitting ? "처리 중…" : "탈퇴 확정"}
             </button>
           </div>
         </div>

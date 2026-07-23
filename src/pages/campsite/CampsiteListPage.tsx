@@ -2,68 +2,107 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, X } from "lucide-react";
 import CampCard from "../../components/common/CampCard";
-import { CAMPS, REGIONS, TAGS_FILTER } from "../../data/camps";
+import { CAMPS, REGIONS, INDUTY_TYPES } from "../../data/camps";
+import { getCampsites } from "../../api/campsite";
 import type { Camp } from "../../types";
 import "./CampsiteListPage.css";
 
 const PAGE_SIZE = 6;
 
+const SORT_OPTIONS = [
+  { label: "추천순", value: "recommended" },
+  { label: "평점순", value: "rating" },
+  { label: "리뷰많은순", value: "reviewCount" },
+  { label: "가격낮은순", value: "priceAsc" },
+] as const;
+
 /**
  * 캠핑장 목록 페이지 (/campsites)
- * - 검색어(?q=), 지역/유형/가격 필터, 정렬 옵션을 조합해 data/camps.ts의 mock 데이터를 클라이언트에서 직접 필터링·정렬
- * - 실제 서버 페이지네이션 없이 IntersectionObserver로 스크롤 시 PAGE_SIZE만큼 목록을 더 보여주는 무한 스크롤 UI만 흉내냄 (setTimeout으로 로딩 지연 연출)
- * - 홈페이지의 검색/카테고리 클릭이 여기로 들어와 query state에 반영됨 (URL의 q 파라미터와 동기화)
+ * - 검색어(?q=)/지역(?region=)/유형(?induty=)/정렬(?sort=)/최대금액(?priceMax=)을 조합해
+ *   백엔드 GET /v1/camps/search를 호출(서버 사이드 필터링/정렬/페이징)
+ * - 필터 변경 시 URL 쿼리파라미터에도 동기화되어 새로고침/뒤로가기에도 유지됨
+ * - 무한 스크롤은 IntersectionObserver로 하단 도달 시 다음 페이지(pageNo+1)를 실제로 fetch
  */
 export default function CampsiteListPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [query, setQuery] = useState(searchParams.get("q") ?? "");
-  const [region, setRegion] = useState("전체");
-  const [tag, setTag] = useState("전체");
-  const [sort, setSort] = useState("추천순");
-  const [priceMax, setPriceMax] = useState(100000);
 
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE); // 현재까지 화면에 보여줄 개수 (무한 스크롤로 증가)
+  const [query, setQuery] = useState(searchParams.get("q") ?? "");
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
+  const [region, setRegion] = useState(searchParams.get("region") ?? "전체");
+  const [induty, setInduty] = useState(searchParams.get("induty") ?? "전체");
+  const [sort, setSort] = useState(searchParams.get("sort") ?? "recommended");
+  const [priceMax, setPriceMax] = useState(Number(searchParams.get("priceMax") ?? 100000));
+
+  const [camps, setCamps] = useState<Camp[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageNo, setPageNo] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [usingFallback, setUsingFallback] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null); // 무한 스크롤 감지를 위한 하단 관찰 대상
 
-  const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.contentId}`);
+  // 자체 등록 캠핑장은 contentId가 항상 null이라 실제 PK인 campId로 식별해야 함
+  const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.campId ?? camp.contentId}`);
 
-  // Apply filters
-  const filtered = CAMPS.filter((c) => {
-    const matchQ = !query || c.facltNm.includes(query) || c.addr1.includes(query) || (c.region ?? "").includes(query);
-    const matchR = region === "전체" || c.region === region;
-    const matchT = tag === "전체" || (c.tags ?? []).includes(tag);
-    const matchP = (c.price ?? 0) <= priceMax;
-    return matchQ && matchR && matchT && matchP;
-  }).sort((a, b) => {
-    if (sort === "평점순") return b.rating - a.rating;
-    if (sort === "리뷰많은순") return (b.reviewCount ?? 0) - (a.reviewCount ?? 0);
-    if (sort === "가격낮은순") return (a.price ?? 0) - (b.price ?? 0);
-    return b.rating - a.rating;
-  });
-
-  const visible = filtered.slice(0, visibleCount);
-  const hasMore = visibleCount < filtered.length;
-
-  // Reset pagination when filters change
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [query, region, tag, sort, priceMax]);
-
-  // Keep URL query param in sync
+  // 검색어만 300ms 디바운스 (지역/유형/정렬/가격은 클릭 즉시 반영)
   useEffect(() => {
-    setSearchParams(query ? { q: query } : {}, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
   }, [query]);
 
-  // Infinite scroll via IntersectionObserver
+  // 필터를 URL 쿼리파라미터에 동기화
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    if (debouncedQuery) next.q = debouncedQuery;
+    if (region !== "전체") next.region = region;
+    if (induty !== "전체") next.induty = induty;
+    if (sort !== "recommended") next.sort = sort;
+    if (priceMax !== 100000) next.priceMax = String(priceMax);
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery, region, induty, sort, priceMax]);
+
+  // 필터가 바뀌면 1페이지부터 새로 조회
+  const fetchPage = useCallback((page: number, append: boolean) => {
+    setLoading(true);
+    getCampsites({
+      keyword: debouncedQuery || undefined,
+      region: region !== "전체" ? region : undefined,
+      induty: induty !== "전체" ? induty : undefined,
+      priceMax,
+      sort: sort as any,
+      pageNo: page,
+      numOfRows: PAGE_SIZE,
+    })
+      .then((res: any) => {
+        const data: Camp[] = res.content ?? [];
+        setTotalCount(res.totalElements ?? data.length);
+        setUsingFallback(false);
+        setCamps((prev) => (append ? [...prev, ...data] : data));
+      })
+      .catch(() => {
+        // 백엔드 호출 실패 시 mock 데이터로 폴백 (필터는 적용하지 않고 전체 노출)
+        setUsingFallback(true);
+        setCamps(CAMPS);
+        setTotalCount(CAMPS.length);
+      })
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery, region, induty, sort, priceMax]);
+
+  useEffect(() => {
+    setPageNo(1);
+    fetchPage(1, false);
+  }, [fetchPage]);
+
+  const hasMore = !usingFallback && camps.length < totalCount;
+
   const loadMore = useCallback(() => {
     if (loading || !hasMore) return;
-    setLoading(true);
-    setTimeout(() => {
-      setVisibleCount((n) => n + PAGE_SIZE);
-      setLoading(false);
-    }, 600);
-  }, [loading, hasMore]);
+    const next = pageNo + 1;
+    setPageNo(next);
+    fetchPage(next, true);
+  }, [loading, hasMore, pageNo, fetchPage]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -95,7 +134,10 @@ export default function CampsiteListPage() {
             </button>
           )}
         </div>
-        <button className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-bold">
+        <button
+          onClick={() => setDebouncedQuery(query)}
+          className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-bold"
+        >
           검색
         </button>
       </div>
@@ -110,9 +152,8 @@ export default function CampsiteListPage() {
               <button
                 key={r}
                 onClick={() => setRegion(r)}
-                className={`px-3 py-1 rounded-full text-xs transition-all ${
-                  region === r ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-secondary"
-                }`}
+                className={`px-3 py-1 rounded-full text-xs transition-all ${region === r ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-secondary"
+                  }`}
               >
                 {r}
               </button>
@@ -120,19 +161,18 @@ export default function CampsiteListPage() {
           </div>
         </div>
 
-        {/* Tags */}
+        {/* Type (induty) */}
         <div>
           <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">유형</p>
           <div className="flex flex-wrap gap-2">
-            {TAGS_FILTER.map((t) => (
+            {INDUTY_TYPES.map((t) => (
               <button
-                key={t}
-                onClick={() => setTag(t)}
-                className={`px-3 py-1 rounded-full text-xs transition-all ${
-                  tag === t ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-secondary"
-                }`}
+                key={t.value}
+                onClick={() => setInduty(t.value)}
+                className={`px-3 py-1 rounded-full text-xs transition-all ${induty === t.value ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-secondary"
+                  }`}
               >
-                {t}
+                {t.label}
               </button>
             ))}
           </div>
@@ -160,8 +200,8 @@ export default function CampsiteListPage() {
               onChange={(e) => setSort(e.target.value)}
               className="bg-muted border border-border rounded-lg px-3 py-1.5 text-sm outline-none"
             >
-              {["추천순", "평점순", "리뷰많은순", "가격낮은순"].map((s) => (
-                <option key={s}>{s}</option>
+              {SORT_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
           </div>
@@ -170,16 +210,16 @@ export default function CampsiteListPage() {
 
       {/* Result count */}
       <p className="text-sm text-muted-foreground mb-4">
-        <span className="text-foreground font-bold">{filtered.length}개</span>의 캠핑장
-        {filtered.length !== CAMPS.length && " (필터 적용됨)"}
+        <span className="text-foreground font-bold">{totalCount.toLocaleString()}개</span>의 캠핑장
+        {usingFallback && " (오프라인 데이터)"}
       </p>
 
       {/* Grid */}
-      {visible.length > 0 ? (
+      {camps.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {visible.map((camp, i) => (
+          {camps.map((camp, i) => (
             <div
-              key={camp.contentId}
+              key={camp.campId ?? camp.contentId}
               className="camp-grid-item"
               style={{ animationDelay: `${(i % PAGE_SIZE) * 0.05}s` }}
             >
@@ -187,12 +227,12 @@ export default function CampsiteListPage() {
             </div>
           ))}
         </div>
-      ) : (
+      ) : !loading ? (
         <div className="py-20 text-center text-muted-foreground">
           <p className="text-4xl mb-3">🏕️</p>
           <p>검색 결과가 없습니다. 조건을 바꿔보세요.</p>
         </div>
-      )}
+      ) : null}
 
       {/* Sentinel for infinite scroll */}
       <div ref={sentinelRef} className="sentinel mt-6" />
@@ -205,9 +245,9 @@ export default function CampsiteListPage() {
       )}
 
       {/* End of results */}
-      {!hasMore && visible.length > 0 && (
+      {!hasMore && camps.length > 0 && !loading && (
         <p className="text-center text-xs text-muted-foreground py-6">
-          모든 캠핑장을 불러왔습니다 ({filtered.length}개)
+          모든 캠핑장을 불러왔습니다 ({totalCount.toLocaleString()}개)
         </p>
       )}
     </div>

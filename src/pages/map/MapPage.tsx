@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Map, MapMarker } from "react-kakao-maps-sdk";
 import { useKakaoLoader } from "react-kakao-maps-sdk";
 import { MapPin, Star } from "lucide-react";
 import { CAMPS } from "../../data/camps";
+import { getCampsites } from "../../api/campsite";
+import { campKey } from "../../lib/camp";
 import type { Camp } from "../../types";
 
 /**
@@ -11,15 +13,29 @@ import type { Camp } from "../../types";
  * - Kakao Maps SDK로 지도에 캠핑장 마커를 표시하고, 옆 목록에서 선택하면 지도 중심이 이동
  * - 마커/목록 클릭 시 선택된 캠핑장을 강조하고, 상세보기 버튼으로 캠핑장 상세 페이지로 이동
  * - VITE_KAKAO_MAP_KEY 환경변수가 없으면 지도 대신 안내 메시지를 표시
+ * - 캠핑장 목록은 백엔드(DB)에서 받아오고, 실패 시 mock 데이터(CAMPS)로 대체
  */
 export default function MapPage() {
   const navigate = useNavigate();
   const [loading, error] = useKakaoLoader({
     appkey: import.meta.env.VITE_KAKAO_MAP_KEY || "",
   });
+  const [camps, setCamps] = useState<Camp[]>(CAMPS);
   const [selected, setSelected] = useState<Camp | null>(CAMPS[0] ?? null); // 지도/목록에서 현재 선택된 캠핑장
 
-  const onCampClick = (camp: Camp) => navigate(`/campsites/${camp.contentId}`);
+  useEffect(() => {
+    getCampsites({ numOfRows: 500 })
+      .then((res: any) => {
+        const data: Camp[] = res.content;
+        setCamps(data);
+        setSelected(data[0] ?? null);
+      })
+      .catch(() => setCamps(CAMPS));
+  }, []);
+
+  // 자체 등록 캠핑장은 contentId가 null이라 campId로 식별해야 한다(상세 라우트는 파라미터명만
+  // :contentId일 뿐 실제로는 campId를 받는다). CampsiteListPage와 동일하게 campKey로 통일한다.
+  const onCampClick = (camp: Camp) => navigate(`/campsites/${campKey(camp)}`);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -43,9 +59,9 @@ export default function MapPage() {
               level={selected ? 8 : 12}
               style={{ width: "100%", height: "100%" }}
             >
-              {CAMPS.map((camp) => (
+              {camps.filter((camp) => camp.mapY != null && camp.mapX != null).map((camp) => (
                 <MapMarker
-                  key={camp.contentId}
+                  key={campKey(camp)}
                   position={{ lat: camp.mapY, lng: camp.mapX }}
                   onClick={() => setSelected(camp)}
                   title={camp.facltNm}
@@ -57,20 +73,23 @@ export default function MapPage() {
 
         {/* Side panel — camp list */}
         <div className="space-y-3 max-h-[420px] lg:max-h-[560px] overflow-y-auto pr-1">
-          {CAMPS.map((camp) => (
+          {camps.map((camp) => (
             <div
-              key={camp.contentId}
+              key={campKey(camp)}
               onClick={() => setSelected(camp)}
-              className={`bg-card border rounded-2xl p-4 cursor-pointer transition-all ${
-                selected?.contentId === camp.contentId ? "border-primary shadow-sm" : "border-border hover:border-primary/30"
-              }`}
+              className={`bg-card border rounded-2xl p-4 cursor-pointer transition-all ${selected && campKey(selected) === campKey(camp) ? "border-primary shadow-sm" : "border-border hover:border-primary/30"
+                }`}
             >
               <div className="flex gap-3">
-                <img
-                  src={camp.image ?? camp.firstImageUrl}
-                  alt={camp.facltNm}
-                  className="w-16 h-14 rounded-xl object-cover flex-shrink-0 bg-muted"
-                />
+                {camp.image || camp.firstImageUrl ? (
+                  <img
+                    src={camp.image || camp.firstImageUrl}
+                    alt={camp.facltNm}
+                    className="w-16 h-14 rounded-xl object-cover flex-shrink-0 bg-muted"
+                  />
+                ) : (
+                  <div className="w-16 h-14 rounded-xl flex-shrink-0 bg-secondary flex items-center justify-center text-lg">🏕️</div>
+                )}
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-sm line-clamp-1">{camp.facltNm}</h3>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
@@ -79,11 +98,11 @@ export default function MapPage() {
                   </div>
                   <div className="flex items-center gap-1 mt-1">
                     <Star size={11} className="fill-accent text-accent" />
-                    <span className="text-xs font-semibold">{camp.rating.toFixed(1)}</span>
+                    <span className="text-xs font-semibold">{(camp.rating ?? camp.averageRating ?? 0).toFixed(1)}</span>
                   </div>
                 </div>
               </div>
-              {selected?.contentId === camp.contentId && (
+              {selected && campKey(selected) === campKey(camp) && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onCampClick(camp); }}
                   className="w-full mt-3 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all"

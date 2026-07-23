@@ -1,12 +1,10 @@
-import type { Camp, WishCamp } from "../types";
+import type { Camp } from "../types";
 
 /**
  * 캠핑장 mock 데이터.
  * - CAMPS: pages/HomePage, pages/campsite/CampsiteListPage, CampsiteDetailPage,
  *   pages/map/MapPage, pages/business/* 등 캠핑장이 노출되는 거의 모든 화면에서 사용.
  * - HOT_CAMPS: CAMPS를 평점순으로 정렬해 상위 4개만 뽑은 파생 데이터 (홈 화면 인기 캠핑장 섹션용).
- * - WISHLIST_CAMPS: CAMPS 앞 3개를 찜 목록 형태로 가공한 것으로,
- *   store/wishlistStore.ts의 초기 상태(wishedIds)로만 사용됨.
  * - REGIONS/INDUTY_TYPES/TAGS_FILTER: 캠핑장 목록/검색 화면의 필터 옵션 목록.
  */
 export const CAMPS: Camp[] = [
@@ -29,10 +27,11 @@ export const CAMPS: Camp[] = [
     price: 45000,
     tags: ["숲속", "반려동물", "전기사이트"],
     image: "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800&h=500&fit=crop&auto=format",
-    desc: "대관령 해발 800m 고원의 울창한 숲속에 위치한 프리미엄 캠핑장. 은하수 관측과 피톤치드 가득한 산림욕을 동시에 즐길 수 있습니다.",
+    lineIntro: "대관령 고원의 숲속에서 즐기는 은하수 캠핑",
+    intro: "대관령 해발 800m 고원의 울창한 숲속에 위치한 프리미엄 캠핑장. 은하수 관측과 피톤치드 가득한 산림욕을 동시에 즐길 수 있습니다.",
     facilities: ["전기", "샤워장", "화장실", "매점", "Wi-Fi", "반려동물"],
-    website: "www.starforest.co.kr",
-    openHours: "14:00 ~ 익일 11:00",
+    homepage: "www.starforest.co.kr",
+    operatingHours: "14:00 ~ 익일 11:00",
     maxPeople: 6,
     reviewCount: 284,
   },
@@ -55,10 +54,11 @@ export const CAMPS: Camp[] = [
     price: 55000,
     tags: ["오션뷰", "일출명소", "글램핑"],
     image: "https://images.unsplash.com/photo-1571863533956-01c88e79957e?w=800&h=500&fit=crop&auto=format",
-    desc: "남해 바다가 한눈에 내려다보이는 절경 캠핑장. 일출과 함께하는 아침이 특히 아름다운 곳으로 유명합니다.",
+    lineIntro: "남해 오션뷰와 함께하는 글램핑 일출 명소",
+    intro: "남해 바다가 한눈에 내려다보이는 절경 캠핑장. 일출과 함께하는 아침이 특히 아름다운 곳으로 유명합니다.",
     facilities: ["전기", "샤워장", "화장실", "바베큐", "글램핑"],
-    website: "www.oceancamp.kr",
-    openHours: "15:00 ~ 익일 11:00",
+    homepage: "www.oceancamp.kr",
+    operatingHours: "15:00 ~ 익일 11:00",
     maxPeople: 4,
     reviewCount: 196,
   },
@@ -81,10 +81,11 @@ export const CAMPS: Camp[] = [
     price: 35000,
     tags: ["계곡", "수영", "어린이 친화"],
     image: "https://images.unsplash.com/photo-1487730116645-74489c95b41b?w=800&h=500&fit=crop&auto=format",
-    desc: "맑고 시원한 계곡이 바로 옆에 흐르는 가족 캠핑 명소. 아이들이 뛰어놀 수 있는 안전한 환경과 다양한 편의시설을 갖추고 있습니다.",
+    lineIntro: "시원한 계곡이 흐르는 가족 친화 캠핑파크",
+    intro: "맑고 시원한 계곡이 바로 옆에 흐르는 가족 캠핑 명소. 아이들이 뛰어놀 수 있는 안전한 환경과 다양한 편의시설을 갖추고 있습니다.",
     facilities: ["전기", "샤워장", "화장실", "매점", "계곡", "어린이놀이터"],
-    website: "www.valleycamp.kr",
-    openHours: "13:00 ~ 익일 12:00",
+    homepage: "www.valleycamp.kr",
+    operatingHours: "13:00 ~ 익일 12:00",
     maxPeople: 8,
     reviewCount: 412,
   },
@@ -106,10 +107,11 @@ export const CAMPS: Camp[] = [
     price: 60000,
     tags: ["제주", "에코", "힐링"],
     image: "https://images.unsplash.com/photo-1510672981848-a1c4f1cb5ccf?w=800&h=500&fit=crop&auto=format",
-    desc: "한라산 서남쪽 기슭에 자리한 친환경 캠핑장. 사계절 내내 아름다운 제주의 자연 속에서 진정한 힐링을 경험할 수 있습니다.",
+    lineIntro: "한라산 자락에서 즐기는 사계절 친환경 힐링",
+    intro: "한라산 서남쪽 기슭에 자리한 친환경 캠핑장. 사계절 내내 아름다운 제주의 자연 속에서 진정한 힐링을 경험할 수 있습니다.",
     facilities: ["전기", "샤워장", "화장실", "바베큐", "Wi-Fi", "주차장"],
-    website: "www.ecojeju.kr",
-    openHours: "14:00 ~ 익일 11:00",
+    homepage: "www.ecojeju.kr",
+    operatingHours: "14:00 ~ 익일 11:00",
     maxPeople: 5,
     reviewCount: 138,
   },
@@ -131,10 +133,11 @@ export const CAMPS: Camp[] = [
     price: 40000,
     tags: ["산악", "단풍", "트레킹"],
     image: "https://images.unsplash.com/photo-1533240332313-0db49b459ad6?w=800&h=500&fit=crop&auto=format",
-    desc: "설악산 국립공원 인근의 산악 베이스캠프. 가을 단풍철과 겨울 설경이 특히 장관이며, 다양한 트레킹 코스의 출발점입니다.",
+    lineIntro: "설악산 단풍·설경과 함께하는 트레킹 베이스캠프",
+    intro: "설악산 국립공원 인근의 산악 베이스캠프. 가을 단풍철과 겨울 설경이 특히 장관이며, 다양한 트레킹 코스의 출발점입니다.",
     facilities: ["샤워장", "화장실", "매점", "주차장"],
-    website: "www.sorakcamp.kr",
-    openHours: "12:00 ~ 익일 10:00",
+    homepage: "www.sorakcamp.kr",
+    operatingHours: "12:00 ~ 익일 10:00",
     maxPeople: 6,
     reviewCount: 321,
   },
@@ -156,10 +159,11 @@ export const CAMPS: Camp[] = [
     price: 38000,
     tags: ["노을", "갯벌", "조개구이"],
     image: "https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?w=800&h=500&fit=crop&auto=format",
-    desc: "서해 최고의 노을 명소로 손꼽히는 태안 해변 캠핑장. 갯벌 체험과 조개구이가 유명하며 사계절 아름다운 해안 풍경을 자랑합니다.",
+    lineIntro: "서해 최고의 노을과 갯벌 체험을 한번에",
+    intro: "서해 최고의 노을 명소로 손꼽히는 태안 해변 캠핑장. 갯벌 체험과 조개구이가 유명하며 사계절 아름다운 해안 풍경을 자랑합니다.",
     facilities: ["전기", "샤워장", "화장실", "바베큐", "갯벌체험"],
-    website: "www.westseacamp.kr",
-    openHours: "14:00 ~ 익일 11:00",
+    homepage: "www.westseacamp.kr",
+    operatingHours: "14:00 ~ 익일 11:00",
     maxPeople: 6,
     reviewCount: 257,
   },
@@ -181,10 +185,11 @@ export const CAMPS: Camp[] = [
     price: 42000,
     tags: ["숲속", "계곡", "트레킹"],
     image: "https://images.unsplash.com/photo-1496545672447-f699b503d270?w=800&h=500&fit=crop&auto=format",
-    desc: "지리산 피아골 계곡을 따라 이어지는 자연 속 오토캠핑장. 봄 벚꽃과 가을 단풍이 특히 아름다우며 계곡 수영도 즐길 수 있습니다.",
+    lineIntro: "지리산 피아골 계곡 옆 사계절 오토캠핑장",
+    intro: "지리산 피아골 계곡을 따라 이어지는 자연 속 오토캠핑장. 봄 벚꽃과 가을 단풍이 특히 아름다우며 계곡 수영도 즐길 수 있습니다.",
     facilities: ["전기", "샤워장", "화장실", "주차장", "계곡"],
-    website: "www.jiricamp.kr",
-    openHours: "14:00 ~ 익일 11:00",
+    homepage: "www.jiricamp.kr",
+    operatingHours: "14:00 ~ 익일 11:00",
     maxPeople: 6,
     reviewCount: 189,
   },
@@ -206,10 +211,11 @@ export const CAMPS: Camp[] = [
     price: 80000,
     tags: ["글램핑", "힐링", "커플"],
     image: "https://images.unsplash.com/photo-1445308394109-4ec2920981b1?w=800&h=500&fit=crop&auto=format",
-    desc: "경주 외곽의 조용한 산속에 자리한 프리미엄 글램핑 시설. 루프탑 자쿠지와 별 관측 데크가 특히 인기입니다.",
+    lineIntro: "루프탑 자쿠지가 있는 프리미엄 커플 글램핑",
+    intro: "경주 외곽의 조용한 산속에 자리한 프리미엄 글램핑 시설. 루프탑 자쿠지와 별 관측 데크가 특히 인기입니다.",
     facilities: ["전기", "샤워장", "화장실", "바베큐", "글램핑", "자쿠지"],
-    website: "www.gyeongjuglamp.kr",
-    openHours: "15:00 ~ 익일 11:00",
+    homepage: "www.gyeongjuglamp.kr",
+    operatingHours: "15:00 ~ 익일 11:00",
     maxPeople: 2,
     reviewCount: 143,
   },
@@ -231,10 +237,11 @@ export const CAMPS: Camp[] = [
     price: 50000,
     tags: ["오토캠핑", "글램핑", "계곡"],
     image: "https://images.unsplash.com/photo-1533240332313-0db49b459ad6?w=800&h=500&fit=crop&auto=format",
-    desc: "강원도 횡성의 넓은 평지에 자리한 프리미엄 오토캠핑장. 60개의 오토사이트와 5개의 글램핑 시설을 보유한 대형 캠핑장입니다.",
+    lineIntro: "60개 오토사이트를 갖춘 강원도 대형 캠핑장",
+    intro: "강원도 횡성의 넓은 평지에 자리한 프리미엄 오토캠핑장. 60개의 오토사이트와 5개의 글램핑 시설을 보유한 대형 캠핑장입니다.",
     facilities: ["전기", "샤워장", "화장실", "매점", "Wi-Fi", "수영장"],
-    website: "www.thatscamping.kr",
-    openHours: "14:00 ~ 익일 11:00",
+    homepage: "www.thatscamping.kr",
+    operatingHours: "14:00 ~ 익일 11:00",
     maxPeople: 6,
     reviewCount: 312,
   },
@@ -242,14 +249,17 @@ export const CAMPS: Camp[] = [
 
 export const HOT_CAMPS = [...CAMPS].sort((a, b) => b.rating - a.rating).slice(0, 4);
 
-export const WISHLIST_CAMPS: WishCamp[] = CAMPS.slice(0, 3).map((c) => ({
-  contentId: c.contentId,
-  facltNm: c.facltNm,
-  addr1: c.addr1,
-  firstImageUrl: c.firstImageUrl,
-  rating: c.rating,
-}));
+export const REGIONS = ["전체", "서울", "경기", "제주", "부산", "대전", "대구", "강원", "충남", "전남광주", "경북", "경남"];
 
-export const REGIONS = ["전체", "강원", "경기", "경남", "충남", "제주", "전남", "경북"];
-export const INDUTY_TYPES = ["전체", "일반야영장", "오토캠핑장", "글램핑", "카라반"];
-export const TAGS_FILTER = ["전체", "숲속", "오션뷰", "계곡", "산악", "노을", "글램핑", "반려동물", "커플", "어린이 친화"];
+// label: 화면에 보여줄 이름 / value: 실제 induty 필터링에 쓰이는 값
+// 오토캠핑만 label과 value가 다르다. DB에는 "오토캠핑"으로 저장돼 있고, 캠핑장 등록 폼
+// (CampsiteFormPage의 INDUTY_OPTIONS)은 "오토캠핑장"으로 저장한다. 백엔드 induty 필터가
+// 부분 일치(LIKE)라서 짧은 쪽인 "오토캠핑"으로 두면 두 표기를 모두 잡는다.
+// ("오토캠핑장"으로 두면 DB의 "오토캠핑"보다 길어 한 건도 매칭되지 않는다.)
+export const INDUTY_TYPES: { label: string; value: string }[] = [
+  { label: "전체", value: "전체" },
+  { label: "일반야영장", value: "일반야영장" },
+  { label: "오토캠핑장", value: "오토캠핑" },
+  { label: "글램핑", value: "글램핑" },
+  { label: "카라반", value: "카라반" },
+];

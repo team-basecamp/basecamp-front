@@ -1,63 +1,120 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import RequireLogin from "../../components/common/RequireLogin";
 import useAuthStore from "../../store/authStore";
 import useNotificationStore from "../../store/notificationStore";
+import { getApiErrorMessage } from "../../lib/apiError";
 import MyPageHeader from "../mypage/MyPageHeader";
-import type { NotificationType } from "../../types";
+import type { Notification, NotificationTargetType, NotificationType } from "../../types";
 
-const NOTIFICATION_ICONS: Record<string, string> = {
+const NOTIFICATION_ICONS: Record<NotificationType, string> = {
   RESERVATION_CONFIRMED: "✅",
   RESERVATION_REJECTED: "❌",
-  RESERVATION_CANCELLED: "🚫",
-  REVIEW_COMMENT: "💬",
-  POST_COMMENT: "📝",
+  RESERVATION_REQUESTED: "📩",
+  RESERVATION_CANCELLED: "⚠️",
+  RESERVATION_D1: "⏰",
+  CAMP_OWNER_APPROVED: "🎉",
+  CAMP_OWNER_REJECTED: "🚫",
 };
 
-// 알림 데이터에 특정 게시글/리뷰/예약 id가 들어있지 않아서, 타입별로 관련 상세가 아닌 해당 카테고리 목록 페이지로만 이동 가능
-// (예: RESERVATION_CONFIRMED를 눌러도 특정 예약 상세가 아니라 예약 목록 "/reservations"로 이동)
-// 예약 관련 알림은 예약 상세 화면이 따로 없어 목록으로, 게시글/리뷰 댓글은 ref_id로 정확한 대상까지 이동
-function resolveNotificationRoute(type: NotificationType, refId?: number): string {
-  switch (type) {
-    case "RESERVATION_CONFIRMED":
-    case "RESERVATION_REJECTED":
-    case "RESERVATION_CANCELLED":
-      return "/reservations";
-    case "REVIEW_COMMENT":
-      return refId ? `/reviews/${refId}` : "/reviews";
-    case "POST_COMMENT":
-      return refId ? `/posts/${refId}` : "/mypage/posts";
-    default:
-      return "/mypage";
-  }
-}
+// 백엔드는 targetType(대상 종류)과 targetId(대상 id)를 주지만, 예약·전환신청 모두 개별 상세 화면이 없어
+// 해당 목록 페이지까지만 이동한다. 상세 라우트가 생기면 targetId를 붙여 정확한 대상으로 보낼 것.
+const NOTIFICATION_ROUTES: Record<NotificationTargetType, string> = {
+  RESERVATION: "/reservations",
+  CAMP_OWNER_APPLICATION: "/mypage/camp-owner",
+};
+
+// RESERVATION_REQUESTED/CANCELLED는 targetType은 똑같이 RESERVATION이지만 수신자가 고객이 아니라
+// 캠핑업체다. targetType만으로는 구분이 안 되므로 type을 직접 보고 업체용 예약관리로 보낸다.
+const OWNER_FACING_TYPES: NotificationType[] = [
+  "RESERVATION_REQUESTED",
+  "RESERVATION_CANCELLED",
+];
+
+const resolveNotificationRoute = (notif: Notification) =>
+  OWNER_FACING_TYPES.includes(notif.type)
+    ? "/business/reservations"
+    : NOTIFICATION_ROUTES[notif.targetType] ?? "/mypage";
 
 /**
  * 알림 목록 (/notifications)
- * - store/notificationStore(zustand)의 알림 목록을 보여주고, 클릭 시 읽음 처리(markRead) 후 관련 페이지로 이동
- * - 이동 경로는 NOTIFICATION_ROUTES 매핑 참고 (개별 상세로는 못 가고 카테고리 목록까지만 이동하는 제약이 있음)
+ * - 진입 시 GET /v1/notifications 로 첫 페이지를 불러오고, "더보기"로 다음 페이지를 이어붙인다.
+ * - 클릭 시 POST /v1/notifications/{id}/read 로 읽음 처리한 뒤 대상 목록 페이지로 이동한다.
+ *   읽음 처리가 실패해도 이동은 막지 않는다(가려던 곳으로 못 가는 편이 더 나쁘다).
  */
 export default function NotificationPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const notifications = useNotificationStore((s) => s.notifications);
+  const loading = useNotificationStore((s) => s.loading);
+  const last = useNotificationStore((s) => s.last);
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
+  const fetchNextPage = useNotificationStore((s) => s.fetchNextPage);
   const markRead = useNotificationStore((s) => s.markRead);
+  const markAllRead = useNotificationStore((s) => s.markAllRead);
+
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    setError(null);
+    fetchNotifications().catch((err) =>
+      setError(getApiErrorMessage(err, "알림을 불러오지 못했습니다."))
+    );
+  }, [user, fetchNotifications]);
 
   if (!user) return <RequireLogin />;
 
-  const handleClick = (notif: (typeof notifications)[number]) => {
-    markRead(notif.notificationId);
-    navigate(resolveNotificationRoute(notif.type, notif.refId));
+  const handleClick = async (notif: Notification) => {
+    try {
+      await markRead(notif.id);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "읽음 처리에 실패했습니다."));
+    }
+    navigate(resolveNotificationRoute(notif));
+  };
+
+  const handleMarkAllRead = () => {
+    setError(null);
+    markAllRead().catch((err) =>
+      setError(getApiErrorMessage(err, "전체 읽음 처리에 실패했습니다."))
+    );
+  };
+
+  const handleLoadMore = () => {
+    setError(null);
+    fetchNextPage().catch((err) =>
+      setError(getApiErrorMessage(err, "알림을 불러오지 못했습니다."))
+    );
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
       <MyPageHeader active="notifications" />
 
+      {error && (
+        <p className="mb-3 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+
+      {unreadCount > 0 && (
+        <div className="flex justify-end mb-3">
+          <button
+            onClick={handleMarkAllRead}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            전체 읽음 처리
+          </button>
+        </div>
+      )}
+
       <div className="space-y-3">
         {notifications.map((notif) => (
           <div
-            key={notif.notificationId}
-            onClick={() => handleClick(notif)}
+            key={notif.id}
+            onClick={() => void handleClick(notif)}
             className={`bg-card border rounded-2xl p-4 cursor-pointer transition-all ${notif.isRead ? "border-border opacity-60" : "border-primary/30 shadow-sm"}`}
           >
             <div className="flex items-start gap-3">
@@ -71,6 +128,23 @@ export default function NotificationPage() {
           </div>
         ))}
       </div>
+
+      {notifications.length === 0 && !loading && (
+        <p className="text-center text-sm text-muted-foreground py-16">알림이 없습니다.</p>
+      )}
+
+      {loading && <p className="text-center text-sm text-muted-foreground py-6">불러오는 중…</p>}
+
+      {!last && !loading && (
+        <div className="flex justify-center mt-6">
+          <button
+            onClick={handleLoadMore}
+            className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-all"
+          >
+            더보기
+          </button>
+        </div>
+      )}
     </div>
   );
 }

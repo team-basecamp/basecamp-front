@@ -1,10 +1,9 @@
-import type { Reservation, Notification, ChatRoom, ChatMessage } from "../types";
+import type { Reservation, ChatRoom, ChatMessage } from "../types";
 
 /**
  * 로그인한 사용자(회원) 및 캠핑업체 사장님 관점의 mock 데이터 모음.
  * - MY_RESERVATIONS: 내 예약 내역. store/reservationStore.ts의 초기 상태(reservations)로 사용됨
  *   (pages/reservation/ReservationPage.tsx, components/common/ReservationList.tsx 등에서 스토어 경유로 조회).
- * - MY_NOTIFICATIONS: 마이페이지 알림함(pages/mypage/*)에서 사용.
  * - CHAT_ROOMS / CHAT_MESSAGES: 캠핑장 사장님과의 채팅 목데이터(채팅 관련 화면에서 사용).
  * - OWNER_RESERVATIONS: 캠핑업체 사장님이 보는 예약 관리 화면(pages/business/ReservationManagePage.tsx)에서 사용.
  */
@@ -56,41 +55,6 @@ export const MY_RESERVATIONS: Reservation[] = [
     guestCount: 3,
     amount: 40000,
     paymentStatus: "UNPAID",
-  },
-];
-
-export const MY_NOTIFICATIONS: Notification[] = [
-  {
-    notificationId: 1,
-    type: "RESERVATION_CONFIRMED",
-    message: "별빛 숲속 캠핑장 7월 15일 예약이 확정되었습니다.",
-    isRead: false,
-    createdAt: "2026-06-27T10:30:00",
-    refId: 1, // MY_RESERVATIONS의 reservationId
-  },
-  {
-    notificationId: 2,
-    type: "RESERVATION_REJECTED",
-    message: "설악산 베이스캠프 예약이 거절되었습니다. 사유: 해당 날짜 만실",
-    isRead: false,
-    createdAt: "2026-06-26T15:00:00",
-    refId: 4, // MY_RESERVATIONS의 reservationId
-  },
-  {
-    notificationId: 3,
-    type: "POST_COMMENT",
-    message: '내 게시글 "대관령 별빛 캠핑장 다녀왔습니다"에 새 댓글이 달렸습니다.',
-    isRead: true,
-    createdAt: "2026-06-25T17:00:00",
-    refId: 1, // POSTS의 postId
-  },
-  {
-    notificationId: 4,
-    type: "REVIEW_COMMENT",
-    message: "내 리뷰에 캠핑장 주인이 답글을 달았습니다.",
-    isRead: true,
-    createdAt: "2026-06-24T09:00:00",
-    refId: 1, // INITIAL_REVIEWS의 review id
   },
 ];
 

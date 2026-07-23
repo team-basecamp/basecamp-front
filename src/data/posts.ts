@@ -23,7 +23,7 @@ export const POSTS: Post[] = [
   },
   {
     postId: 2,
-    category: "CREW",
+    category: "CAMP_MATE",
     title: "7월 첫째주 가평 계곡 캠핑 같이 가실 분 모집합니다!",
     content: "7월 4일(금) ~ 6일(일) 2박3일로 가평 계곡 캠핑 계획 중입니다. 현재 2명이고 2~3명 더 모집해요. 텐트는 각자 가져오시고 장비는 공유 가능합니다. 20~30대 환영! 캠핑 경험 있으신 분 우선입니다.",
     writer: "자연인_수진",
@@ -34,7 +34,7 @@ export const POSTS: Post[] = [
   },
   {
     postId: 3,
-    category: "TRANSFER",
+    category: "RESERVATION_TRANSFER",
     title: "7월 15~16일 별빛 숲속 캠핑장 예약 양도합니다",
     content: "갑작스러운 일정 변경으로 7월 15일(화) ~ 16일(수) 1박 예약을 양도합니다. 일반 사이트 1자리, 전기 포함. 원래 결제 금액 45,000원에 양도합니다. 빠른 연락 부탁드려요!",
     writer: "주말캠퍼_민호",
@@ -56,7 +56,7 @@ export const POSTS: Post[] = [
   },
   {
     postId: 5,
-    category: "CREW",
+    category: "CAMP_MATE",
     title: "8월 제주 캠핑 동행 구합니다 (2인 여성)",
     content: "8월 10일~13일 3박4일 제주 캠핑 동행을 구해요. 저희는 20대 여성 2인이고 한라산 에코캠프 예약 완료된 상태입니다. 같이 제주 여행도 하실 분 환영합니다!",
     writer: "제주러버",
@@ -67,7 +67,7 @@ export const POSTS: Post[] = [
   },
   {
     postId: 6,
-    category: "TRANSFER",
+    category: "RESERVATION_TRANSFER",
     title: "설악산 베이스캠프 8월 예약 양도 (2인)",
     content: "8월 5일(화) 1박 예약 양도합니다. 일반사이트 1자리. 40,000원에 양도해드려요. 직거래 또는 계좌이체 가능합니다.",
     writer: "등산러버",
@@ -89,7 +89,7 @@ export const POSTS: Post[] = [
   },
   {
     postId: 8,
-    category: "CREW",
+    category: "CAMP_MATE",
     title: "가족 캠핑 동행 구해요 (유아 있음)",
     content: "7살, 5살 아이들과 함께 가평 계곡 캠핑 예정입니다. 비슷한 연령대 아이가 있는 가족분들과 함께하고 싶어요. 7월 중순 주말 예정입니다.",
     writer: "두아빠_준혁",

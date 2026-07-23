@@ -1,66 +1,83 @@
 import { useNavigate } from "react-router-dom";
-import { Heart, MapPin, Star, X } from "lucide-react";
-import { CAMPS } from "../../data/camps";
+import { Heart, MapPin, X } from "lucide-react";
 import RequireLogin from "../../components/common/RequireLogin";
 import useAuthStore from "../../store/authStore";
-import useWishlistStore from "../../store/wishlistStore";
+import { useWishlist } from "../../hooks/useWishlist";
 import MyPageHeader from "./MyPageHeader";
 
 /**
  * 찜한 캠핑장 목록 (/mypage/wishlist)
- * - store/wishlistStore(zustand)에 저장된 찜 id 목록(wishedIds)으로 CAMPS 데이터를 필터링해 카드 그리드로 보여줌
- * - wishlistStore를 쓰는 이유: 캠핑장 상세 페이지 등 다른 화면에서 찜하기/해제해도 이 목록이 페이지 이동과 무관하게 동기화됨
+ * - GET /v1/wishlists/me 응답(useWishlist)을 그대로 그린다. 서버가 이미 최신 찜 순으로 내려주고
+ *   카드에 필요한 정보(facltNm/addr1/firstImageUrl)도 함께 주므로 캠핑장 목록을 따로 조회하지 않는다.
+ * - 찜 해제는 같은 훅의 toggleWish -> 성공 시 ["wishlists"] 무효화라서 이 목록도 함께 갱신된다.
  */
 export default function WishlistPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const wishedIds = useWishlistStore((s) => s.wishedIds);
-  const toggleWish = useWishlistStore((s) => s.toggleWish);
+  const { wishlists, isLoading, isPending, toggleWish } = useWishlist();
 
   if (!user) return <RequireLogin />;
-
-  const wishedCamps = CAMPS.filter((c) => wishedIds.has(c.contentId));
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
       <MyPageHeader active="wishlist" />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {wishedCamps.map((camp) => (
-          <div
-            key={camp.contentId}
-            onClick={() => navigate(`/campsites/${camp.contentId}`)}
-            className="relative bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all group"
-          >
-            <button
-              onClick={(e) => { e.stopPropagation(); toggleWish(camp.contentId); }}
-              className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/85 backdrop-blur flex items-center justify-center hover:bg-white transition-all shadow-sm"
-              title="찜 해제"
+      {isLoading ? (
+        <div className="py-16 text-center text-sm text-muted-foreground">
+          불러오는 중...
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {wishlists.map((camp) => (
+            <div
+              key={camp.campId}
+              onClick={() => navigate(`/campsites/${camp.campId}`)}
+              className="relative bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all group"
             >
-              <X size={14} className="text-destructive" />
-            </button>
-            <div className="h-36 bg-muted overflow-hidden">
-              <img src={camp.firstImageUrl} alt={camp.facltNm} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-            </div>
-            <div className="p-4">
-              <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors">{camp.facltNm}</h3>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-                <MapPin size={10} /> {camp.addr1}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleWish(camp.campId);
+                }}
+                disabled={isPending}
+                className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/85 backdrop-blur flex items-center justify-center hover:bg-white transition-all shadow-sm disabled:opacity-60"
+                title="찜 해제"
+                aria-label="찜 해제"
+              >
+                <X size={14} className="text-destructive" />
+              </button>
+              <div className="h-36 bg-muted overflow-hidden">
+                {camp.firstImageUrl ? (
+                  <img
+                    src={camp.firstImageUrl}
+                    alt={camp.facltNm}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-secondary flex items-center justify-center text-muted-foreground text-3xl">
+                    🏕️
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-1 text-xs">
-                <Star size={11} className="fill-accent text-accent" />
-                <span className="font-semibold">{camp.rating.toFixed(1)}</span>
+              <div className="p-4">
+                <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors">
+                  {camp.facltNm}
+                </h3>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin size={10} className="flex-shrink-0" />
+                  <span className="truncate">{camp.addr1}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-        {wishedCamps.length === 0 && (
-          <div className="col-span-3 py-16 text-center text-muted-foreground">
-            <Heart size={40} className="mx-auto mb-3 opacity-20" />
-            <p className="text-sm">찜한 캠핑장이 없습니다</p>
-          </div>
-        )}
-      </div>
+          ))}
+          {wishlists.length === 0 && (
+            <div className="col-span-3 py-16 text-center text-muted-foreground">
+              <Heart size={40} className="mx-auto mb-3 opacity-20" />
+              <p className="text-sm">찜한 캠핑장이 없습니다</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
